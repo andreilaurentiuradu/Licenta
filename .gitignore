@@ -1,2 +1,17 @@
-data.csv
 frontend/node_modules
+venv/
+
+# Backend
+backend/instance/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/.env
+
+# Frontend
+frontend/dist/
+frontend/.env
+
+# OS
+.DS_Store
+Thumbs.db

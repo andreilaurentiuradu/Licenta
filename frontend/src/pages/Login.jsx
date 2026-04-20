@@ -1,73 +1,76 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Activity } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function Login() {
-  const { login } = useAuth()
-  const navigate = useNavigate()
-  const [email, setEmail] = useState('admin@fcau.ro')
-  const [password, setPassword] = useState('admin123')
-  const [loading, setLoading] = useState(false)
+  const { login }   = useAuth()
+  const navigate    = useNavigate()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading,  setLoading]  = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     try {
-      await login(email, password)
-      navigate('/dashboard')
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Login failed')
+      await login(username, password)
+      navigate('/home')
+    } catch {
+      toast.error('Invalid username or password')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-blue-950 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <Activity size={28} className="text-blue-600" />
-          <h1 className="text-2xl font-bold text-slate-800">SportAnalytics</h1>
-        </div>
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 w-full max-w-sm p-8">
 
-        <p className="text-center text-slate-500 text-sm mb-6">
-          Predictive Analytics Platform for Elite Sports
-        </p>
+        <h1 className="text-xl font-semibold text-slate-800 mb-1">Sign in</h1>
+        <p className="text-sm text-slate-400 mb-6">SportAnalytics Platform</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="label">Email</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Username</label>
             <input
-              type="email"
-              className="input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
               required
             />
           </div>
           <div>
-            <label className="label">Password</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Password</label>
             <input
               type="password"
-              className="input"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
               required
             />
           </div>
-          <button type="submit" className="btn-primary w-full mt-2" disabled={loading}>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-slate-800 text-white text-sm font-medium py-2 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
+          >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 
-        <div className="mt-6 p-4 bg-slate-50 rounded-lg text-xs text-slate-500 space-y-1">
-          <p className="font-medium text-slate-600 mb-2">Demo accounts:</p>
-          <p>admin@fcau.ro / admin123</p>
-          <p>coach@fcau.ro / coach123</p>
-          <p>admin@stfc.ro / admin123</p>
+        <p className="text-center text-xs text-slate-400 mt-5">
+          No account?{' '}
+          <Link to="/register" className="text-slate-700 hover:underline font-medium">Register</Link>
+        </p>
+
+        {/* Demo credentials */}
+        <div className="mt-5 p-3 bg-slate-50 rounded-lg text-xs text-slate-400 space-y-0.5">
+          <p className="font-medium text-slate-500 mb-1">Demo accounts</p>
+          <p>admin_user / admin123 &nbsp;·&nbsp; role: admin</p>
+          <p>coach_user / coach123 &nbsp;·&nbsp; role: coach</p>
         </div>
       </div>
     </div>

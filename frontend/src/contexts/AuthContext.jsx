@@ -3,8 +3,22 @@ import { login as apiLogin, getMe } from '../api/auth'
 
 const AuthContext = createContext(null)
 
+/** Parse user info from a Keycloak JWT (no signature check — display only). */
+function parseToken(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return {
+      username: payload.preferred_username,
+      email:    payload.email,
+      roles:    payload.realm_access?.roles ?? [],
+    }
+  } catch {
+    return null
+  }
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
+  const [user,    setUser]    = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -19,12 +33,13 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const login = async (email, password) => {
-    const { data } = await apiLogin(email, password)
-    localStorage.setItem('access_token', data.access_token)
+  const login = async (username, password) => {
+    const { data } = await apiLogin(username, password)
+    localStorage.setItem('access_token',  data.access_token)
     localStorage.setItem('refresh_token', data.refresh_token)
-    setUser(data.user)
-    return data.user
+    const parsed = parseToken(data.access_token)
+    setUser(parsed)
+    return parsed
   }
 
   const logout = () => {

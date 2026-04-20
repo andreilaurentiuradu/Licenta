@@ -1,0 +1,62 @@
+version: '3.8'
+
+# ── Docker Swarm stack ────────────────────────────────────────────
+# Build:   ./run.sh build
+# Deploy:  ./run.sh start
+# Stop:    ./run.sh stop
+# Status:  ./run.sh status
+# Logs:    ./run.sh logs [keycloak|backend|frontend]
+# ─────────────────────────────────────────────────────────────────
+
+configs:
+  realm_config:
+    file: ./keycloak/realm-export.json
+
+services:
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.3
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin123
+    command:
+      - start-dev
+      - --import-realm
+    configs:
+      - source: realm_config
+        target: /opt/keycloak/data/import/realm-export.json
+    ports:
+      - "8180:8080"
+    healthcheck:
+      disable: true
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+
+  backend:
+    image: sportanalytics-backend:latest
+    ports:
+      - "5000:5000"
+    environment:
+      FLASK_ENV: development
+      KEYCLOAK_URL: http://keycloak:8080
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+
+  frontend:
+    image: sportanalytics-frontend:latest
+    ports:
+      - "3000:3000"
+    environment:
+      BACKEND_URL: http://backend:5000
+      KC_URL: http://keycloak:8080
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s

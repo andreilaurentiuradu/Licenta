@@ -17,10 +17,19 @@ api.interceptors.response.use(
       const refresh = localStorage.getItem('refresh_token')
       if (refresh) {
         try {
-          const { data } = await axios.post('/api/auth/refresh', null, {
-            headers: { Authorization: `Bearer ${refresh}` },
+          // Refresh via Keycloak token endpoint (proxied through Vite)
+          const params = new URLSearchParams({
+            grant_type:    'refresh_token',
+            client_id:     'sport-analytics-client',
+            refresh_token: refresh,
           })
+          const { data } = await axios.post(
+            '/realms/sport-analytics/protocol/openid-connect/token',
+            params,
+            { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+          )
           localStorage.setItem('access_token', data.access_token)
+          if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token)
           original.headers.Authorization = `Bearer ${data.access_token}`
           return api(original)
         } catch {
@@ -30,7 +39,7 @@ api.interceptors.response.use(
       }
     }
     return Promise.reject(err)
-  }
+  },
 )
 
 export default api

@@ -39,7 +39,7 @@ A SaaS platform that helps sports clubs anticipate player injuries, support tact
     │   ├── App.jsx
     │   ├── api/          # axios.js · auth.js
     │   ├── contexts/     # AuthContext.jsx
-    │   └── pages/        # Login · Register · Home
+    │   └── pages/        # SportSelect · Login · Register · Home
     └── vite.config.js
 ```
 
@@ -103,11 +103,20 @@ A SaaS platform that helps sports clubs anticipate player injuries, support tact
 - Token verification uses Keycloak's JWKS endpoint (no shared secret)
 
 **Frontend (React)**
-- `/login` — username + password form, authenticates directly against Keycloak (direct grant flow)
-- `/register` — create account with role selection (coach / admin)
+- `/` — sport selection landing page: Football or Marathon, full-screen split design with hover animations
+- `/login` — sport-themed login form (dark gradient matching selected sport, glassmorphism inputs)
+- `/register` — sport-themed registration with role selection (coach / admin)
 - `/home` — protected page, shows welcome message and role badge
+- Sport context persisted in `localStorage` — drives colour theme across all pages
 - Automatic token refresh via Keycloak refresh token
 - Role-aware UI (admin vs coach view)
+
+**UI / Design**
+- Full-screen split layout on sport selection with expand-on-hover animation
+- Floating dot particles and decorative grid lines on all pages
+- Per-sport colour theme: emerald green (Football) · orange-red (Marathon)
+- Glassmorphism form cards on dark gradient backgrounds
+- Slide-up entrance animation on Login and Register
 
 ---
 

@@ -1,8 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-import Login    from './pages/Login'
-import Register from './pages/Register'
-import Home     from './pages/Home'
+import SportSelect from './pages/SportSelect'
+import Login      from './pages/Login'
+import Register   from './pages/Register'
+import Home       from './pages/Home'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -14,6 +15,7 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
+        <Route path="/"         element={<SportSelect />} />
         <Route path="/login"    element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
@@ -24,7 +26,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>
   )

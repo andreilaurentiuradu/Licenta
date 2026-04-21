@@ -42,7 +42,7 @@ stack_deploy() {
 
   echo ""
   echo "  Services:"
-  echo "    Keycloak  → http://localhost:8080"
+  echo "    Keycloak  → http://localhost:8180"
   echo "    Backend   → http://localhost:5000"
   echo "    Frontend  → http://localhost:3000"
   echo ""

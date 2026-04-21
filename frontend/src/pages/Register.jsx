@@ -4,10 +4,13 @@ import { register } from '../api/auth'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 
+const SPORT_LABEL = { football: '⚽ Football', marathon: '🏃 Marathon' }
+
 export default function Register() {
-  const { login }   = useAuth()
-  const navigate    = useNavigate()
-  const [loading,   setLoading]  = useState(false)
+  const { login }  = useAuth()
+  const navigate   = useNavigate()
+  const sport      = localStorage.getItem('selected_sport')
+  const [loading,  setLoading] = useState(false)
   const [form, setForm] = useState({
     username: '', email: '', password: '', confirm: '', role: 'coach',
   })
@@ -36,6 +39,21 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 w-full max-w-sm p-8">
+
+        {/* Sport badge + back */}
+        <div className="flex items-center justify-between mb-6">
+          {sport && (
+            <span className="text-xs font-medium bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
+              {SPORT_LABEL[sport]}
+            </span>
+          )}
+          <button
+            onClick={() => navigate('/')}
+            className="text-xs text-slate-400 hover:text-slate-600 ml-auto"
+          >
+            ← Change sport
+          </button>
+        </div>
 
         <h1 className="text-xl font-semibold text-slate-800 mb-1">Create account</h1>
         <p className="text-sm text-slate-400 mb-6">SportAnalytics Platform</p>

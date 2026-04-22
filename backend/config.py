@@ -10,6 +10,8 @@ class Config:
     KEYCLOAK_CLIENT_ID  = "sport-analytics-client"
     KEYCLOAK_ADMIN_USER = "admin"
     KEYCLOAK_ADMIN_PASS = "admin123"
+    SQLALCHEMY_DATABASE_URI     = os.environ.get("DATABASE_URL", "postgresql://sa_user:sa_pass@localhost:5432/sportanalytics")
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 
 class DevelopmentConfig(Config):

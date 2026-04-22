@@ -5,7 +5,7 @@ version: '3.8'
 # Deploy:  ./run.sh start
 # Stop:    ./run.sh stop
 # Status:  ./run.sh status
-# Logs:    ./run.sh logs [keycloak|backend|frontend]
+# Logs:    ./run.sh logs [postgres|keycloak|backend|frontend]
 # ─────────────────────────────────────────────────────────────────
 
 configs:
@@ -13,6 +13,24 @@ configs:
     file: ./keycloak/realm-export.json
 
 services:
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB:       sportanalytics
+      POSTGRES_USER:     sa_user
+      POSTGRES_PASSWORD: sa_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      disable: true
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.3
@@ -42,6 +60,7 @@ services:
     environment:
       FLASK_ENV: development
       KEYCLOAK_URL: http://keycloak:8080
+      DATABASE_URL: postgresql://sa_user:sa_pass@postgres:5432/sportanalytics
     deploy:
       replicas: 1
       restart_policy:
@@ -60,3 +79,6 @@ services:
       restart_policy:
         condition: on-failure
         delay: 5s
+
+volumes:
+  pg_data:

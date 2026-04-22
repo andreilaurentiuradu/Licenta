@@ -52,6 +52,7 @@ export default function Register() {
     setLoading(true)
     try {
       await register({ username: form.username, email: form.email, password: form.password, role: form.role })
+      await new Promise((r) => setTimeout(r, 1000))
       await login(form.username, form.password)
       toast.success('Account created!')
       navigate('/home')

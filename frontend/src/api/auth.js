@@ -21,3 +21,7 @@ export const register = (data) => api.post('/auth/register', data)
 
 /** Get current user info from Flask (validates token server-side). */
 export const getMe = () => api.get('/auth/me')
+
+/** Submit feedback (ratings + optional message). */
+export const submitFeedback = (ratings, message) =>
+  api.post('/feedback/', { ratings, message })

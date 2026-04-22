@@ -17,6 +17,12 @@ const DOTS = [
 
 const NAV_CARDS = [
   {
+    to: '/profile',
+    icon: '👤',
+    title: 'Profile',
+    desc: 'Account details and assigned roles',
+  },
+  {
     to: '/support',
     icon: '🛟',
     title: 'Support',
@@ -102,12 +108,25 @@ export default function Home() {
           </div>
 
           {/* Navigation cards */}
-          <div className="slide-up-3 grid grid-cols-2 gap-3 mb-10">
-            {NAV_CARDS.map((card) => (
+          <div className="slide-up-3 mb-10">
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              {NAV_CARDS.slice(0, 2).map((card) => (
+                <button
+                  key={card.to}
+                  onClick={() => navigate(card.to)}
+                  className="nav-card text-left p-5 rounded-2xl bg-white/10 border border-white/15"
+                >
+                  <span className="text-2xl block mb-3">{card.icon}</span>
+                  <p className="text-sm font-semibold text-white">{card.title}</p>
+                  <p className="text-xs text-white/40 mt-0.5">{card.desc}</p>
+                </button>
+              ))}
+            </div>
+            {NAV_CARDS.slice(2).map((card) => (
               <button
                 key={card.to}
                 onClick={() => navigate(card.to)}
-                className="nav-card text-left p-5 rounded-2xl bg-white/10 border border-white/15"
+                className="nav-card w-full text-left p-5 rounded-2xl bg-white/10 border border-white/15"
               >
                 <span className="text-2xl block mb-3">{card.icon}</span>
                 <p className="text-sm font-semibold text-white">{card.title}</p>

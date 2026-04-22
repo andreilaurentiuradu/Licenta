@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { submitFeedback } from '../api/auth'
 
 const THEMES = {
   football: { bg: 'from-emerald-950 via-emerald-900 to-green-800', accent: '#34d399', ring: 'focus:ring-emerald-500', btn: 'bg-emerald-500 hover:bg-emerald-400' },
@@ -37,10 +38,15 @@ export default function Feedback() {
       return
     }
     setLoading(true)
-    await new Promise((r) => setTimeout(r, 800))
-    setLoading(false)
-    setSent(true)
-    toast.success('Thank you for your feedback!')
+    try {
+      await submitFeedback(ratings, message)
+      setSent(true)
+      toast.success('Thank you for your feedback!')
+    } catch {
+      toast.error('Failed to submit feedback. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -114,7 +120,7 @@ export default function Feedback() {
                               className="star-btn text-xl leading-none"
                               style={{ color: filled ? theme.accent : 'rgba(255,255,255,0.2)' }}
                               onMouseEnter={() => setHover((h) => ({ ...h, [aspect]: star }))}
-                              onMouseLeave={() => setHover((h) => ({ ...h, [aspect]: 0 }))}
+                              onMouseLeave={() => setHover((h) => ({ ...h, [aspect]: null }))}
                               onClick={() => setRating(aspect, star)}
                             >
                               ★

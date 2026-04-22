@@ -4,6 +4,8 @@ import SportSelect from './pages/SportSelect'
 import Login      from './pages/Login'
 import Register   from './pages/Register'
 import Home       from './pages/Home'
+import Support    from './pages/Support'
+import Feedback   from './pages/Feedback'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -23,6 +25,22 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Home />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/support"
+          element={
+            <ProtectedRoute>
+              <Support />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/feedback"
+          element={
+            <ProtectedRoute>
+              <Feedback />
             </ProtectedRoute>
           }
         />

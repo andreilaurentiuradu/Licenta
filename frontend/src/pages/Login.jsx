@@ -45,8 +45,9 @@ export default function Login() {
     try {
       await login(username, password)
       navigate('/home')
-    } catch {
-      toast.error('Invalid username or password')
+    } catch (err) {
+      const desc = err.response?.data?.error_description || err.response?.data?.error || 'Invalid username or password'
+      toast.error(desc)
     } finally {
       setLoading(false)
     }

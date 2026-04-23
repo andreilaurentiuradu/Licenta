@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { register } from '../api/auth'
-import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 
 const THEMES = {
@@ -31,8 +30,7 @@ const DOTS = [
 ]
 
 export default function Register() {
-  const { login }  = useAuth()
-  const navigate   = useNavigate()
+  const navigate = useNavigate()
   const sport      = localStorage.getItem('selected_sport') || 'football'
   const theme      = THEMES[sport] || THEMES.football
 
@@ -52,10 +50,8 @@ export default function Register() {
     setLoading(true)
     try {
       await register({ username: form.username, email: form.email, password: form.password, role: form.role })
-      await new Promise((r) => setTimeout(r, 1000))
-      await login(form.username, form.password)
-      toast.success('Account created!')
-      navigate('/home')
+      toast.success('Account created! Please sign in.')
+      navigate('/login')
     } catch (err) {
       toast.error(err.response?.data?.error || 'Registration failed')
     } finally {

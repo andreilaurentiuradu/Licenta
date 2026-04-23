@@ -10,13 +10,14 @@
   "bruteForceProtected": false,
   "roles": {
     "realm": [
-      { "name": "admin",  "composite": false, "clientRole": false },
-      { "name": "coach",  "composite": false, "clientRole": false }
+      { "name": "admin", "description": "Administrator - full platform access", "composite": false, "clientRole": false },
+      { "name": "coach", "description": "Coach - manages players and views predictions", "composite": false, "clientRole": false }
     ]
   },
   "clients": [
     {
       "clientId": "sport-analytics-client",
+      "name": "SportAnalytics Client",
       "enabled": true,
       "publicClient": true,
       "directAccessGrantsEnabled": true,
@@ -24,7 +25,8 @@
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": ["http://localhost:3000/*"],
-      "webOrigins": ["+"]
+      "webOrigins": ["+"],
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
     }
   ],
   "users": [
@@ -35,6 +37,7 @@
       "lastName": "User",
       "enabled": true,
       "emailVerified": true,
+      "requiredActions": [],
       "credentials": [{ "type": "password", "value": "admin123", "temporary": false }],
       "realmRoles": ["admin"]
     },
@@ -45,6 +48,7 @@
       "lastName": "User",
       "enabled": true,
       "emailVerified": true,
+      "requiredActions": [],
       "credentials": [{ "type": "password", "value": "coach123", "temporary": false }],
       "realmRoles": ["coach"]
     }

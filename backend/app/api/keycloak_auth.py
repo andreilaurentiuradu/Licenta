@@ -113,19 +113,22 @@ def register():
         realm   = _realm()
         base    = f"{_keycloak_url()}/admin/realms/{realm}"
 
-        # 1. Create user
-        create_resp = requests.post(
-            f"{base}/users",
-            json={
-                "username":      data["username"],
-                "email":         data["email"],
-                "enabled":       True,
-                "emailVerified": True,
-                "credentials":   [{"type": "password", "value": data["password"], "temporary": False}],
-            },
-            headers=headers,
-            timeout=10,
-        )
+        # 1. Create user with credentials inline (like realm-export does)
+        create_payload = {
+            "username":        data["username"],
+            "email":           data["email"],
+            "firstName":       data["username"].capitalize(),
+            "lastName":        "User",
+            "enabled":         True,
+            "emailVerified":   True,
+            "requiredActions": [],
+            "credentials": [{
+                "type":      "password",
+                "value":     data["password"],
+                "temporary": False,
+            }],
+        }
+        create_resp = requests.post(f"{base}/users", json=create_payload, headers=headers, timeout=10)
         if create_resp.status_code == 409:
             return jsonify({"error": "Username or email already exists"}), 409
         if create_resp.status_code not in (201, 204):
@@ -140,12 +143,17 @@ def register():
             return jsonify({"error": "User created but could not be retrieved"}), 500
         user_id = users[0]["id"]
 
-        # 3. Get role definition
+        # 3. Force-clear requiredActions with full PUT (safeguard against auto-added actions)
+        full_user = requests.get(f"{base}/users/{user_id}", headers=headers, timeout=10).json()
+        full_user["requiredActions"] = []
+        full_user["emailVerified"]   = True
+        full_user["enabled"]         = True
+        requests.put(f"{base}/users/{user_id}", json=full_user, headers=headers, timeout=10)
+
+        # 4. Assign role
         role_resp = requests.get(f"{base}/roles/{role}", headers=headers, timeout=10)
         if role_resp.status_code != 200:
             return jsonify({"error": f"Role '{role}' not found in realm"}), 404
-
-        # 4. Assign role
         requests.post(
             f"{base}/users/{user_id}/role-mappings/realm",
             json=[role_resp.json()],

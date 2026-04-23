@@ -5,15 +5,36 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 STACK="sportanalytics"
 
 usage() {
-  echo "Usage: $0 {build|start|stop|restart|status|logs [service]}"
+  echo "Usage: $0 {build|start|stop|restart|status|logs [service]|test [backend|frontend]}"
   echo ""
-  echo "  build            Build backend + frontend Docker images"
-  echo "  start            Init swarm + deploy stack"
-  echo "  stop             Remove the stack"
-  echo "  restart          stop → build → start"
-  echo "  status           Show running services"
-  echo "  logs [service]   Tail logs (postgres | keycloak | backend | frontend)"
+  echo "  build              Build backend + frontend Docker images"
+  echo "  start              Init swarm + deploy stack"
+  echo "  stop               Remove the stack"
+  echo "  restart            stop → build → start"
+  echo "  status             Show running services"
+  echo "  logs [service]     Tail logs (postgres | keycloak | backend | frontend)"
+  echo "  test [scope]       Run unit tests (backend | frontend | all)"
   exit 1
+}
+
+run_backend_tests() {
+  echo "[test] Running backend tests (pytest)..."
+  docker run --rm \
+    -v "$ROOT/backend:/app" \
+    -w /app \
+    -e DATABASE_URL="sqlite:///:memory:" \
+    -e KEYCLOAK_URL="http://keycloak:8080" \
+    python:3.11-slim \
+    bash -c "pip install --no-cache-dir -q -r requirements.txt && pytest -v tests/"
+}
+
+run_frontend_tests() {
+  echo "[test] Running frontend tests (vitest)..."
+  docker run --rm \
+    -v "$ROOT/frontend:/app" \
+    -w /app \
+    node:20-alpine \
+    sh -c "npm install --silent && npm test"
 }
 
 build_images() {
@@ -61,6 +82,12 @@ stack_stop() {
   until ! docker stack ls --format '{{.Name}}' 2>/dev/null | grep -q "^${STACK}$"; do
     sleep 2
   done
+
+  echo "[stop] Waiting for overlay network to be removed..."
+  until ! docker network ls --format '{{.Name}}' 2>/dev/null | grep -q "^${STACK}_default$"; do
+    sleep 2
+  done
+
   echo "[stop] Stack removed."
 }
 
@@ -88,6 +115,15 @@ case "$CMD" in
   logs)
     SERVICE="${2:-backend}"
     docker service logs "${STACK}_${SERVICE}" -f
+    ;;
+  test)
+    SCOPE="${2:-all}"
+    case "$SCOPE" in
+      backend)  run_backend_tests ;;
+      frontend) run_frontend_tests ;;
+      all)      run_backend_tests && run_frontend_tests ;;
+      *)        echo "Unknown test scope: $SCOPE"; usage ;;
+    esac
     ;;
   *)
     usage

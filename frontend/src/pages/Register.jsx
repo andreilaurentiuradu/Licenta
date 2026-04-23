@@ -121,8 +121,9 @@ export default function Register() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-white/60 mb-1.5">Username</label>
+              <label htmlFor="username" className="block text-xs font-medium text-white/60 mb-1.5">Username</label>
               <input
+                id="username"
                 className={inputClass}
                 placeholder="your username"
                 value={form.username}
@@ -131,8 +132,9 @@ export default function Register() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-white/60 mb-1.5">Email</label>
+              <label htmlFor="email" className="block text-xs font-medium text-white/60 mb-1.5">Email</label>
               <input
+                id="email"
                 type="email"
                 className={inputClass}
                 placeholder="you@example.com"
@@ -143,8 +145,9 @@ export default function Register() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-white/60 mb-1.5">Password</label>
+                <label htmlFor="password" className="block text-xs font-medium text-white/60 mb-1.5">Password</label>
                 <input
+                  id="password"
                   type="password"
                   className={inputClass}
                   placeholder="••••••••"
@@ -154,8 +157,9 @@ export default function Register() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-white/60 mb-1.5">Confirm</label>
+                <label htmlFor="confirm" className="block text-xs font-medium text-white/60 mb-1.5">Confirm</label>
                 <input
+                  id="confirm"
                   type="password"
                   className={inputClass}
                   placeholder="••••••••"
@@ -166,8 +170,9 @@ export default function Register() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-white/60 mb-1.5">Role</label>
+              <label htmlFor="role" className="block text-xs font-medium text-white/60 mb-1.5">Role</label>
               <select
+                id="role"
                 className={inputClass + ' bg-white/10'}
                 value={form.role}
                 onChange={(e) => set('role', e.target.value)}

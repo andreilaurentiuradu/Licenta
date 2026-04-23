@@ -113,8 +113,9 @@ export default function Login() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-white/60 mb-1.5">Username</label>
+              <label htmlFor="username" className="block text-xs font-medium text-white/60 mb-1.5">Username</label>
               <input
+                id="username"
                 className={`w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:ring-2 ${theme.ring} focus:border-transparent transition-all`}
                 placeholder="your username"
                 value={username}
@@ -124,8 +125,9 @@ export default function Login() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-white/60 mb-1.5">Password</label>
+              <label htmlFor="password" className="block text-xs font-medium text-white/60 mb-1.5">Password</label>
               <input
+                id="password"
                 type="password"
                 className={`w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:ring-2 ${theme.ring} focus:border-transparent transition-all`}
                 placeholder="••••••••"

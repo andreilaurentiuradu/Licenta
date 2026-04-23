@@ -15,33 +15,44 @@ const DOTS = [
   { top: '38%', left: '94%', delay: '1.6s', size: 4 },
 ]
 
-const NAV_CARDS = [
-  {
-    to: '/profile',
-    icon: '👤',
-    title: 'Profile',
-    desc: 'Account details and assigned roles',
-  },
-  {
-    to: '/support',
-    icon: '🛟',
-    title: 'Support',
-    desc: 'Documentation, FAQs and contact',
-  },
-  {
-    to: '/feedback',
-    icon: '💬',
-    title: 'Feedback',
-    desc: 'Rate the platform and share thoughts',
-  },
+const BASE_CARDS = [
+  { to: '/profile',  icon: '👤', title: 'Profile',  desc: 'Account details and assigned roles' },
+  { to: '/support',  icon: '🛟', title: 'Support',  desc: 'Documentation, FAQs and contact' },
+  { to: '/feedback', icon: '💬', title: 'Feedback', desc: 'Rate the platform and share thoughts' },
 ]
+
+const ADMIN_CARD = {
+  to: '/admin/users', icon: '🛡️', title: 'User Management', desc: 'Create coaches, players and admins',
+}
+
+const ROLE_BADGE = {
+  admin:  { text: 'Admin',  class: 'bg-purple-500/20 text-purple-300' },
+  coach:  { text: 'Coach',  class: 'bg-blue-500/20 text-blue-300' },
+  player: { text: 'Player', class: 'bg-amber-500/20 text-amber-300' },
+}
+
+const ROLE_DESC = {
+  admin:  'Administrator access · Full platform control',
+  coach:  'Coach access · Player analytics coming in Sprint 2',
+  player: 'Player access · Personal stats and training data',
+}
+
+function pickRole(roles) {
+  if (roles?.includes('admin'))  return 'admin'
+  if (roles?.includes('coach'))  return 'coach'
+  if (roles?.includes('player')) return 'player'
+  return 'coach'
+}
 
 export default function Home() {
   const { user, logout } = useAuth()
   const navigate         = useNavigate()
   const sport            = localStorage.getItem('selected_sport') || 'football'
   const theme            = THEMES[sport] || THEMES.football
-  const isAdmin          = user?.roles?.includes('admin')
+  const role             = pickRole(user?.roles)
+  const isAdmin          = role === 'admin'
+  const roleBadge        = ROLE_BADGE[role]
+  const navCards         = isAdmin ? [...BASE_CARDS, ADMIN_CARD] : BASE_CARDS
 
   const handleLogout = () => { logout(); navigate('/') }
 
@@ -89,8 +100,8 @@ export default function Home() {
             <span className="text-xs font-medium px-3 py-1 rounded-full bg-white/10 text-white/70">
               {theme.label}
             </span>
-            <span className={`text-xs font-semibold px-3 py-1 rounded-full ${isAdmin ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-500/20 text-blue-300'}`}>
-              {isAdmin ? 'Admin' : 'Coach'}
+            <span className={`text-xs font-semibold px-3 py-1 rounded-full ${roleBadge.class}`}>
+              {roleBadge.text}
             </span>
           </div>
 
@@ -101,38 +112,54 @@ export default function Home() {
               <span style={{ color: theme.accent }}>{user?.username}</span>
             </h1>
             <p className="text-white/40 text-sm mt-2">
-              {isAdmin
-                ? 'Administrator access · Full platform control'
-                : 'Coach access · Player analytics coming in Sprint 2'}
+              {ROLE_DESC[role]}
             </p>
           </div>
 
           {/* Navigation cards */}
           <div className="slide-up-3 mb-10">
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              {NAV_CARDS.slice(0, 2).map((card) => (
-                <button
-                  key={card.to}
-                  onClick={() => navigate(card.to)}
-                  className="nav-card text-left p-5 rounded-2xl bg-white/10 border border-white/15"
-                >
-                  <span className="text-2xl block mb-3">{card.icon}</span>
-                  <p className="text-sm font-semibold text-white">{card.title}</p>
-                  <p className="text-xs text-white/40 mt-0.5">{card.desc}</p>
-                </button>
-              ))}
-            </div>
-            {NAV_CARDS.slice(2).map((card) => (
-              <button
-                key={card.to}
-                onClick={() => navigate(card.to)}
-                className="nav-card w-full text-left p-5 rounded-2xl bg-white/10 border border-white/15"
-              >
-                <span className="text-2xl block mb-3">{card.icon}</span>
-                <p className="text-sm font-semibold text-white">{card.title}</p>
-                <p className="text-xs text-white/40 mt-0.5">{card.desc}</p>
-              </button>
-            ))}
+            {navCards.length % 2 === 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {navCards.map((card) => (
+                  <button
+                    key={card.to}
+                    onClick={() => navigate(card.to)}
+                    className="nav-card text-left p-5 rounded-2xl bg-white/10 border border-white/15"
+                  >
+                    <span className="text-2xl block mb-3">{card.icon}</span>
+                    <p className="text-sm font-semibold text-white">{card.title}</p>
+                    <p className="text-xs text-white/40 mt-0.5">{card.desc}</p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  {navCards.slice(0, 2).map((card) => (
+                    <button
+                      key={card.to}
+                      onClick={() => navigate(card.to)}
+                      className="nav-card text-left p-5 rounded-2xl bg-white/10 border border-white/15"
+                    >
+                      <span className="text-2xl block mb-3">{card.icon}</span>
+                      <p className="text-sm font-semibold text-white">{card.title}</p>
+                      <p className="text-xs text-white/40 mt-0.5">{card.desc}</p>
+                    </button>
+                  ))}
+                </div>
+                {navCards.slice(2).map((card) => (
+                  <button
+                    key={card.to}
+                    onClick={() => navigate(card.to)}
+                    className="nav-card w-full text-left p-5 rounded-2xl bg-white/10 border border-white/15"
+                  >
+                    <span className="text-2xl block mb-3">{card.icon}</span>
+                    <p className="text-sm font-semibold text-white">{card.title}</p>
+                    <p className="text-xs text-white/40 mt-0.5">{card.desc}</p>
+                  </button>
+                ))}
+              </>
+            )}
           </div>
 
           {/* Sign out */}

@@ -7,11 +7,20 @@ import Home       from './pages/Home'
 import Support    from './pages/Support'
 import Feedback   from './pages/Feedback'
 import Profile    from './pages/Profile'
+import UserManagement from './pages/UserManagement'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 text-sm">Loading…</div>
   return user ? children : <Navigate to="/login" replace />
+}
+
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="flex items-center justify-center h-screen text-slate-400 text-sm">Loading…</div>
+  if (!user) return <Navigate to="/login" replace />
+  if (!user.roles?.includes('admin')) return <Navigate to="/home" replace />
+  return children
 }
 
 export default function App() {
@@ -51,6 +60,14 @@ export default function App() {
             <ProtectedRoute>
               <Profile />
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <AdminRoute>
+              <UserManagement />
+            </AdminRoute>
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -20,7 +20,8 @@ function initials(username) {
 }
 
 function roleLabel(roles) {
-  if (roles?.includes('admin')) return { text: 'Admin', color: 'bg-purple-500/20 text-purple-300' }
+  if (roles?.includes('admin'))  return { text: 'Admin',  color: 'bg-purple-500/20 text-purple-300' }
+  if (roles?.includes('player')) return { text: 'Player', color: 'bg-amber-500/20 text-amber-300' }
   return { text: 'Coach', color: 'bg-blue-500/20 text-blue-300' }
 }
 

@@ -93,76 +93,106 @@ def _admin_token() -> str:
     return resp.json()["access_token"]
 
 
+# ── Helpers ────────────────────────────────────────────────────────
+
+ALL_ROLES       = ("admin", "coach", "player")
+PUBLIC_ROLES    = ("coach", "player")
+
+
+def _create_user_in_keycloak(username: str, email: str, password: str, role: str):
+    """Create a Keycloak user with credentials + assign realm role. Returns (resp_dict, status_code)."""
+    token   = _admin_token()
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    base    = f"{_keycloak_url()}/admin/realms/{_realm()}"
+
+    # 1. Create user with credentials inline
+    create_payload = {
+        "username":        username,
+        "email":           email,
+        "firstName":       username.capitalize(),
+        "lastName":        "User",
+        "enabled":         True,
+        "emailVerified":   True,
+        "requiredActions": [],
+        "credentials": [{
+            "type":      "password",
+            "value":     password,
+            "temporary": False,
+        }],
+    }
+    create_resp = requests.post(f"{base}/users", json=create_payload, headers=headers, timeout=10)
+    if create_resp.status_code == 409:
+        return {"error": "Username or email already exists"}, 409
+    if create_resp.status_code not in (201, 204):
+        return {"error": "Failed to create user", "detail": create_resp.text}, 500
+
+    # 2. Get user ID
+    users = requests.get(
+        f"{base}/users?username={username}&exact=true",
+        headers=headers, timeout=10,
+    ).json()
+    if not users:
+        return {"error": "User created but could not be retrieved"}, 500
+    user_id = users[0]["id"]
+
+    # 3. Force-clear requiredActions
+    full_user = requests.get(f"{base}/users/{user_id}", headers=headers, timeout=10).json()
+    full_user["requiredActions"] = []
+    full_user["emailVerified"]   = True
+    full_user["enabled"]         = True
+    requests.put(f"{base}/users/{user_id}", json=full_user, headers=headers, timeout=10)
+
+    # 4. Assign role
+    role_resp = requests.get(f"{base}/roles/{role}", headers=headers, timeout=10)
+    if role_resp.status_code != 200:
+        return {"error": f"Role '{role}' not found in realm"}, 404
+    requests.post(
+        f"{base}/users/{user_id}/role-mappings/realm",
+        json=[role_resp.json()],
+        headers=headers,
+        timeout=10,
+    )
+
+    return {"message": f"User '{username}' created with role '{role}'"}, 201
+
+
 # ── Routes ────────────────────────────────────────────────────────
 
 @keycloak_auth_bp.post("/register")
 def register():
-    """Create a new user in Keycloak and assign an admin or coach role."""
+    """Public registration — only allows 'coach' or 'player' roles."""
     data     = request.get_json(silent=True) or {}
     required = ["username", "email", "password", "role"]
     if not all(k in data for k in required):
         return jsonify({"error": f"Required fields: {required}"}), 400
 
-    role = data["role"]
-    if role not in ("admin", "coach"):
-        return jsonify({"error": "role must be 'admin' or 'coach'"}), 400
+    if data["role"] not in PUBLIC_ROLES:
+        return jsonify({"error": f"role must be one of {list(PUBLIC_ROLES)}"}), 400
 
     try:
-        token   = _admin_token()
-        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        realm   = _realm()
-        base    = f"{_keycloak_url()}/admin/realms/{realm}"
+        body, code = _create_user_in_keycloak(data["username"], data["email"], data["password"], data["role"])
+        return jsonify(body), code
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 503
+    except Exception as exc:
+        return jsonify({"error": "Unexpected error", "detail": str(exc)}), 500
 
-        # 1. Create user with credentials inline (like realm-export does)
-        create_payload = {
-            "username":        data["username"],
-            "email":           data["email"],
-            "firstName":       data["username"].capitalize(),
-            "lastName":        "User",
-            "enabled":         True,
-            "emailVerified":   True,
-            "requiredActions": [],
-            "credentials": [{
-                "type":      "password",
-                "value":     data["password"],
-                "temporary": False,
-            }],
-        }
-        create_resp = requests.post(f"{base}/users", json=create_payload, headers=headers, timeout=10)
-        if create_resp.status_code == 409:
-            return jsonify({"error": "Username or email already exists"}), 409
-        if create_resp.status_code not in (201, 204):
-            return jsonify({"error": "Failed to create user", "detail": create_resp.text}), 500
 
-        # 2. Get user ID
-        users = requests.get(
-            f"{base}/users?username={data['username']}&exact=true",
-            headers=headers, timeout=10,
-        ).json()
-        if not users:
-            return jsonify({"error": "User created but could not be retrieved"}), 500
-        user_id = users[0]["id"]
+@keycloak_auth_bp.post("/admin/create-user")
+@keycloak_required(roles=["admin"])
+def admin_create_user():
+    """Admin-only — can create users with any role (admin, coach, player)."""
+    data     = request.get_json(silent=True) or {}
+    required = ["username", "email", "password", "role"]
+    if not all(k in data for k in required):
+        return jsonify({"error": f"Required fields: {required}"}), 400
 
-        # 3. Force-clear requiredActions with full PUT (safeguard against auto-added actions)
-        full_user = requests.get(f"{base}/users/{user_id}", headers=headers, timeout=10).json()
-        full_user["requiredActions"] = []
-        full_user["emailVerified"]   = True
-        full_user["enabled"]         = True
-        requests.put(f"{base}/users/{user_id}", json=full_user, headers=headers, timeout=10)
+    if data["role"] not in ALL_ROLES:
+        return jsonify({"error": f"role must be one of {list(ALL_ROLES)}"}), 400
 
-        # 4. Assign role
-        role_resp = requests.get(f"{base}/roles/{role}", headers=headers, timeout=10)
-        if role_resp.status_code != 200:
-            return jsonify({"error": f"Role '{role}' not found in realm"}), 404
-        requests.post(
-            f"{base}/users/{user_id}/role-mappings/realm",
-            json=[role_resp.json()],
-            headers=headers,
-            timeout=10,
-        )
-
-        return jsonify({"message": f"User '{data['username']}' created with role '{role}'"}), 201
-
+    try:
+        body, code = _create_user_in_keycloak(data["username"], data["email"], data["password"], data["role"])
+        return jsonify(body), code
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), 503
     except Exception as exc:

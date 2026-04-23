@@ -10,8 +10,9 @@
   "bruteForceProtected": false,
   "roles": {
     "realm": [
-      { "name": "admin", "description": "Administrator - full platform access", "composite": false, "clientRole": false },
-      { "name": "coach", "description": "Coach - manages players and views predictions", "composite": false, "clientRole": false }
+      { "name": "admin",  "description": "Administrator - full platform access", "composite": false, "clientRole": false },
+      { "name": "coach",  "description": "Coach - manages players and views predictions", "composite": false, "clientRole": false },
+      { "name": "player", "description": "Player - views own stats and training data", "composite": false, "clientRole": false }
     ]
   },
   "clients": [

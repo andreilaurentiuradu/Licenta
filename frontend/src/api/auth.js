@@ -16,8 +16,11 @@ export const login = (username, password) =>
     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
   )
 
-/** Register via Flask → Keycloak admin API. */
+/** Public registration — only coach/player roles. */
 export const register = (data) => api.post('/auth/register', data)
+
+/** Admin-only — create users with any role. */
+export const adminCreateUser = (data) => api.post('/auth/admin/create-user', data)
 
 /** Get current user info from Flask (validates token server-side). */
 export const getMe = () => api.get('/auth/me')

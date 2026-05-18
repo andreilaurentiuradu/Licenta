@@ -30,7 +30,7 @@ describe('SportSelect page', () => {
     expect(screen.getByText(/Endurance metrics/i)).toBeInTheDocument()
   })
 
-  it('saves football choice to localStorage and navigates to /login', async () => {
+  it('saves football choice to localStorage and navigates to /home', async () => {
     const { container } = renderWithRouter(<SportSelect />)
     const cards = container.querySelectorAll('.sport-card')
     expect(cards).toHaveLength(2)
@@ -40,7 +40,7 @@ describe('SportSelect page', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/home')
   })
 
-  it('saves marathon choice to localStorage and navigates to /login', async () => {
+  it('saves marathon choice to localStorage and navigates to /home', async () => {
     const { container } = renderWithRouter(<SportSelect />)
     const cards = container.querySelectorAll('.sport-card')
 

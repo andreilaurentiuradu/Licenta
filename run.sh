@@ -20,8 +20,9 @@ usage() {
 
 run_backend_tests() {
   echo "[test] Running backend tests (pytest)..."
-  docker run --rm \
-    -v "$ROOT/backend:/app" \
+  WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
+  MSYS_NO_PATHCONV=1 docker run --rm \
+    -v "${WIN_ROOT}/backend:/app" \
     -w /app \
     -e DATABASE_URL="sqlite:///:memory:" \
     -e KEYCLOAK_URL="http://keycloak:8080" \
@@ -31,8 +32,9 @@ run_backend_tests() {
 
 run_frontend_tests() {
   echo "[test] Running frontend tests (vitest)..."
-  docker run --rm \
-    -v "$ROOT/frontend:/app" \
+  WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
+  MSYS_NO_PATHCONV=1 docker run --rm \
+    -v "${WIN_ROOT}/frontend:/app" \
     -w /app \
     node:20-alpine \
     sh -c "npm install --silent && npm test"

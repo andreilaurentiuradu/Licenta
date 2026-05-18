@@ -25,8 +25,10 @@ export default function Login() {
     setLoading(true)
     try {
       await login(username, password)
-      const sport = localStorage.getItem('selected_sport')
-      navigate(sport ? '/home' : '/select-sport')
+      if (!localStorage.getItem('selected_sport')) {
+        localStorage.setItem('selected_sport', 'football')
+      }
+      navigate('/home')
     } catch (err) {
       const desc = err.response?.data?.error_description || err.response?.data?.error || 'Invalid username or password'
       toast.error(desc)
@@ -127,6 +129,7 @@ export default function Login() {
             <p className="font-medium text-white/60 mb-1">Demo accounts</p>
             <p>admin_user / admin123 · admin</p>
             <p>coach_user / coach123 · coach</p>
+            <p>player1    / player123 · player</p>
           </div>
         </div>
       </div>

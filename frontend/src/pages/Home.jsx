@@ -25,6 +25,14 @@ const ADMIN_CARD = {
   to: '/admin/users', icon: '🛡️', title: 'User Management', desc: 'Create coaches, players and admins',
 }
 
+const COACH_PLAYERS_CARD = {
+  to: '/players', icon: '📊', title: 'Players', desc: 'View and manage player metrics',
+}
+
+const PLAYER_STATS_CARD = (sub) => ({
+  to: `/players/${sub}/biometrics`, icon: '📊', title: 'My Stats', desc: 'Biometrics, training and wellness data',
+})
+
 const ROLE_BADGE = {
   admin:  { text: 'Admin',  class: 'bg-purple-500/20 text-purple-300' },
   coach:  { text: 'Coach',  class: 'bg-blue-500/20 text-blue-300' },
@@ -33,8 +41,8 @@ const ROLE_BADGE = {
 
 const ROLE_DESC = {
   admin:  'Administrator access · Full platform control',
-  coach:  'Coach access · Player analytics coming in Sprint 2',
-  player: 'Player access · Personal stats and training data',
+  coach:  'Coach access · View and manage all player metrics',
+  player: 'Player access · Personal stats, training and wellness',
 }
 
 function pickRole(roles) {
@@ -51,8 +59,16 @@ export default function Home() {
   const theme            = THEMES[sport] || THEMES.football
   const role             = pickRole(user?.roles)
   const isAdmin          = role === 'admin'
+  const isCoach          = role === 'coach'
+  const isPlayer         = role === 'player'
   const roleBadge        = ROLE_BADGE[role]
-  const navCards         = isAdmin ? [...BASE_CARDS, ADMIN_CARD] : BASE_CARDS
+  const navCards         = isAdmin
+    ? [...BASE_CARDS, ADMIN_CARD]
+    : isCoach
+    ? [...BASE_CARDS, COACH_PLAYERS_CARD]
+    : isPlayer
+    ? [...BASE_CARDS, PLAYER_STATS_CARD(user?.sub)]
+    : BASE_CARDS
 
   const handleLogout = () => { logout(); navigate('/') }
 

@@ -8,6 +8,7 @@ function parseToken(token) {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]))
     return {
+      sub:      payload.sub,
       username: payload.preferred_username,
       email:    payload.email,
       roles:    payload.realm_access?.roles ?? [],

@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 STACK="sportanalytics"
 
 usage() {
-  echo "Usage: $0 {build|start|stop|restart|status|logs [service]|test [backend|frontend]}"
+  echo "Usage: $0 {build|start|stop|restart|status|logs [service]|test [backend|frontend]|seed}"
   echo ""
   echo "  build              Build backend + frontend Docker images"
   echo "  start              Init swarm + deploy stack"
@@ -14,6 +14,7 @@ usage() {
   echo "  status             Show running services"
   echo "  logs [service]     Tail logs (postgres | keycloak | backend | frontend)"
   echo "  test [scope]       Run unit tests (backend | frontend | all)"
+  echo "  seed               Create demo player accounts and populate mock data"
   exit 1
 }
 
@@ -124,6 +125,18 @@ case "$CMD" in
       all)      run_backend_tests && run_frontend_tests ;;
       *)        echo "Unknown test scope: $SCOPE"; usage ;;
     esac
+    ;;
+  seed)
+    echo "[seed] Running seed script against running stack..."
+    WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
+    MSYS_NO_PATHCONV=1 docker run --rm \
+      --add-host=host.docker.internal:host-gateway \
+      -v "${WIN_ROOT}/backend:/app" \
+      -w /app \
+      -e KEYCLOAK_URL="http://host.docker.internal:8180" \
+      -e DATABASE_URL="postgresql://sa_user:sa_pass@host.docker.internal:5432/sportanalytics" \
+      python:3.11-slim \
+      bash -c "pip install --no-cache-dir -q -r requirements.txt && python seed.py"
     ;;
   *)
     usage

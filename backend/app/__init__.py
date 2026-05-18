@@ -14,9 +14,11 @@ def create_app(env_name="default"):
 
     from app.api.keycloak_auth import keycloak_auth_bp
     from app.api.feedback import feedback_bp
+    from app.api.players import players_bp
 
     app.register_blueprint(keycloak_auth_bp, url_prefix="/api/auth")
     app.register_blueprint(feedback_bp,      url_prefix="/api/feedback")
+    app.register_blueprint(players_bp,       url_prefix="/api/players")
 
     with app.app_context():
         from app import models  # noqa: F401 — ensures models are registered before create_all

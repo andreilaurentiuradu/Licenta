@@ -52,6 +52,42 @@
       "requiredActions": [],
       "credentials": [{ "type": "password", "value": "coach123", "temporary": false }],
       "realmRoles": ["coach"]
+    },
+    {
+      "id": "7fa16dc5-a751-4d85-82b7-07442f3a07b5",
+      "username": "player1",
+      "email": "player1@demo.ro",
+      "firstName": "Player1",
+      "lastName": "Demo",
+      "enabled": true,
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [{ "type": "password", "value": "player123", "temporary": false }],
+      "realmRoles": ["player"]
+    },
+    {
+      "id": "9550fa09-3703-40cf-a7ea-403c638c181e",
+      "username": "player2",
+      "email": "player2@demo.ro",
+      "firstName": "Player2",
+      "lastName": "Demo",
+      "enabled": true,
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [{ "type": "password", "value": "player123", "temporary": false }],
+      "realmRoles": ["player"]
+    },
+    {
+      "id": "679a4743-7fb5-4e9a-90f7-748aed3d1fd7",
+      "username": "player3",
+      "email": "player3@demo.ro",
+      "firstName": "Player3",
+      "lastName": "Demo",
+      "enabled": true,
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [{ "type": "password", "value": "player123", "temporary": false }],
+      "realmRoles": ["player"]
     }
   ]
 }

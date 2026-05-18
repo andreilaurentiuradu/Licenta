@@ -33,19 +33,7 @@ describe('Login page', () => {
     expect(screen.getByRole('button', { name: /Sign in/i })).toBeInTheDocument()
   })
 
-  it('uses default football theme when no sport is saved', () => {
-    renderWithRouter(<Login />)
-    expect(screen.getByText(/Football/i)).toBeInTheDocument()
-  })
-
-  it('uses marathon theme when selected in localStorage', () => {
-    localStorage.setItem('selected_sport', 'marathon')
-    renderWithRouter(<Login />)
-    expect(screen.getByText(/Marathon/i)).toBeInTheDocument()
-  })
-
-  it('navigates to /home when sport is already in localStorage', async () => {
-    localStorage.setItem('selected_sport', 'football')
+  it('navigates to /home after successful login', async () => {
     mockLogin.mockResolvedValueOnce({ username: 'coach_user' })
     renderWithRouter(<Login />)
 
@@ -59,7 +47,7 @@ describe('Login page', () => {
     })
   })
 
-  it('navigates to /select-sport when no sport in localStorage', async () => {
+  it('defaults sport to football when none is stored', async () => {
     mockLogin.mockResolvedValueOnce({ username: 'coach_user' })
     renderWithRouter(<Login />)
 
@@ -68,7 +56,21 @@ describe('Login page', () => {
     await userEvent.click(screen.getByRole('button', { name: /Sign in/i }))
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/select-sport')
+      expect(localStorage.getItem('selected_sport')).toBe('football')
+    })
+  })
+
+  it('preserves existing sport in localStorage', async () => {
+    localStorage.setItem('selected_sport', 'marathon')
+    mockLogin.mockResolvedValueOnce({ username: 'coach_user' })
+    renderWithRouter(<Login />)
+
+    await userEvent.type(screen.getByLabelText(/Username/i), 'coach_user')
+    await userEvent.type(screen.getByLabelText(/Password/i), 'coach123')
+    await userEvent.click(screen.getByRole('button', { name: /Sign in/i }))
+
+    await waitFor(() => {
+      expect(localStorage.getItem('selected_sport')).toBe('marathon')
     })
   })
 

@@ -37,7 +37,7 @@ describe('SportSelect page', () => {
 
     await userEvent.click(cards[0])
     expect(localStorage.getItem('selected_sport')).toBe('football')
-    expect(mockNavigate).toHaveBeenCalledWith('/login')
+    expect(mockNavigate).toHaveBeenCalledWith('/home')
   })
 
   it('saves marathon choice to localStorage and navigates to /login', async () => {
@@ -46,6 +46,6 @@ describe('SportSelect page', () => {
 
     await userEvent.click(cards[1])
     expect(localStorage.getItem('selected_sport')).toBe('marathon')
-    expect(mockNavigate).toHaveBeenCalledWith('/login')
+    expect(mockNavigate).toHaveBeenCalledWith('/home')
   })
 })

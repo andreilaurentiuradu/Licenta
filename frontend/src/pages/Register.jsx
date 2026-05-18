@@ -3,23 +3,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { register } from '../api/auth'
 import toast from 'react-hot-toast'
 
-const THEMES = {
-  football: {
-    bg: 'from-emerald-950 via-emerald-900 to-green-800',
-    accent: '#34d399',
-    label: '⚽ Football',
-    ring: 'focus:ring-emerald-500',
-    btn: 'bg-emerald-500 hover:bg-emerald-400',
-  },
-  marathon: {
-    bg: 'from-orange-950 via-orange-900 to-red-800',
-    accent: '#fb923c',
-    label: '🏃 Marathon',
-    ring: 'focus:ring-orange-500',
-    btn: 'bg-orange-500 hover:bg-orange-400',
-  },
-}
-
 const DOTS = [
   { top: '10%', left: '90%', delay: '0s',   size: 5 },
   { top: '25%', left: '5%',  delay: '0.7s', size: 7 },
@@ -29,14 +12,14 @@ const DOTS = [
   { top: '40%', left: '3%',  delay: '1.5s', size: 4 },
 ]
 
+const inputClass = 'w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all'
+
 export default function Register() {
   const navigate = useNavigate()
-  const sport      = localStorage.getItem('selected_sport') || 'football'
-  const theme      = THEMES[sport] || THEMES.football
 
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
-    username: '', email: '', password: '', confirm: '', role: 'coach',
+    username: '', email: '', password: '', confirm: '', role: 'coach', sport: 'football',
   })
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
@@ -49,6 +32,7 @@ export default function Register() {
     }
     setLoading(true)
     try {
+      localStorage.setItem('selected_sport', form.sport)
       await register({ username: form.username, email: form.email, password: form.password, role: form.role })
       toast.success('Account created! Please sign in.')
       navigate('/login')
@@ -58,8 +42,6 @@ export default function Register() {
       setLoading(false)
     }
   }
-
-  const inputClass = `w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:ring-2 ${theme.ring} focus:border-transparent transition-all`
 
   return (
     <>
@@ -76,7 +58,7 @@ export default function Register() {
         .form-card  { animation: slideUp 0.5s ease both; }
       `}</style>
 
-      <div className={`min-h-screen bg-gradient-to-br ${theme.bg} flex items-center justify-center p-4 relative overflow-hidden`}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center p-4 relative overflow-hidden">
 
         {/* Decorative lines */}
         <div className="absolute inset-0 pointer-events-none">
@@ -92,12 +74,7 @@ export default function Register() {
           <div
             key={i}
             className="dot-float absolute rounded-full bg-white pointer-events-none"
-            style={{
-              top: d.top, left: d.left,
-              width: d.size, height: d.size,
-              opacity: 0.12,
-              animationDelay: d.delay,
-            }}
+            style={{ top: d.top, left: d.left, width: d.size, height: d.size, opacity: 0.08, animationDelay: d.delay }}
           />
         ))}
 
@@ -105,17 +82,9 @@ export default function Register() {
         <div className="form-card relative z-10 w-full max-w-sm">
 
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <p className="text-white text-xl font-bold tracking-tight">Create account</p>
-              <p className="text-xs mt-0.5" style={{ color: theme.accent }}>{theme.label}</p>
-            </div>
-            <button
-              onClick={() => navigate('/')}
-              className="text-xs text-white/40 hover:text-white/70 transition-colors"
-            >
-              ← Change sport
-            </button>
+          <div className="mb-8 text-center">
+            <p className="text-2xl font-bold text-white tracking-tight">SportAnalytics</p>
+            <p className="text-xs mt-1 text-white/40">Create your account</p>
           </div>
 
           {/* Form */}
@@ -169,22 +138,36 @@ export default function Register() {
                 />
               </div>
             </div>
-            <div>
-              <label htmlFor="role" className="block text-xs font-medium text-white/60 mb-1.5">Role</label>
-              <select
-                id="role"
-                className={inputClass + ' bg-white/10'}
-                value={form.role}
-                onChange={(e) => set('role', e.target.value)}
-              >
-                <option value="coach"   className="bg-slate-900">Coach</option>
-                <option value="player"  className="bg-slate-900">Player</option>
-              </select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="role" className="block text-xs font-medium text-white/60 mb-1.5">Role</label>
+                <select
+                  id="role"
+                  className={inputClass + ' bg-slate-900'}
+                  value={form.role}
+                  onChange={(e) => set('role', e.target.value)}
+                >
+                  <option value="coach"  className="bg-slate-900">Coach</option>
+                  <option value="player" className="bg-slate-900">Player</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="sport" className="block text-xs font-medium text-white/60 mb-1.5">Sport</label>
+                <select
+                  id="sport"
+                  className={inputClass + ' bg-slate-900'}
+                  value={form.sport}
+                  onChange={(e) => set('sport', e.target.value)}
+                >
+                  <option value="football" className="bg-slate-900">⚽ Football</option>
+                  <option value="marathon" className="bg-slate-900">🏃 Marathon</option>
+                </select>
+              </div>
             </div>
             <button
               type="submit"
               disabled={loading}
-              className={`w-full ${theme.btn} text-white text-sm font-semibold py-2.5 rounded-xl transition-all duration-200 disabled:opacity-50 mt-1`}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold py-2.5 rounded-xl transition-all duration-200 disabled:opacity-50 mt-1"
             >
               {loading ? 'Creating account…' : 'Create account →'}
             </button>

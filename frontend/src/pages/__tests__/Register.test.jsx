@@ -33,14 +33,24 @@ describe('Register page', () => {
     expect(screen.getByLabelText(/^Password$/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/Confirm/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/Role/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Sport/i)).toBeInTheDocument()
   })
 
   it('public register only allows coach or player roles', () => {
     renderWithRouter(<Register />)
-    const options = screen.getAllByRole('option').map((o) => o.value)
-    expect(options).toContain('coach')
-    expect(options).toContain('player')
-    expect(options).not.toContain('admin')
+    const roleOptions = screen.getByLabelText(/Role/i).querySelectorAll('option')
+    const roleValues  = [...roleOptions].map((o) => o.value)
+    expect(roleValues).toContain('coach')
+    expect(roleValues).toContain('player')
+    expect(roleValues).not.toContain('admin')
+  })
+
+  it('sport dropdown contains football and marathon', () => {
+    renderWithRouter(<Register />)
+    const sportOptions = screen.getByLabelText(/Sport/i).querySelectorAll('option')
+    const sportValues  = [...sportOptions].map((o) => o.value)
+    expect(sportValues).toContain('football')
+    expect(sportValues).toContain('marathon')
   })
 
   it('rejects submission when passwords do not match', async () => {
@@ -75,6 +85,7 @@ describe('Register page', () => {
         password: 'secret123',
         role:     'coach',
       })
+      expect(localStorage.getItem('selected_sport')).toBe('football')
       expect(toast.success).toHaveBeenCalledWith('Account created! Please sign in.')
       expect(mockNavigate).toHaveBeenCalledWith('/login')
     })

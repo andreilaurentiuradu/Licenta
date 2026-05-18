@@ -42,7 +42,7 @@ export default function SportSelect() {
 
   const handleSelect = (sport) => {
     localStorage.setItem('selected_sport', sport)
-    navigate('/login')
+    navigate('/home')
   }
 
   return (

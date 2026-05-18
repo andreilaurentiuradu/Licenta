@@ -44,7 +44,8 @@ describe('Login page', () => {
     expect(screen.getByText(/Marathon/i)).toBeInTheDocument()
   })
 
-  it('calls login and navigates to /home on success', async () => {
+  it('navigates to /home when sport is already in localStorage', async () => {
+    localStorage.setItem('selected_sport', 'football')
     mockLogin.mockResolvedValueOnce({ username: 'coach_user' })
     renderWithRouter(<Login />)
 
@@ -55,6 +56,19 @@ describe('Login page', () => {
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledWith('coach_user', 'coach123')
       expect(mockNavigate).toHaveBeenCalledWith('/home')
+    })
+  })
+
+  it('navigates to /select-sport when no sport in localStorage', async () => {
+    mockLogin.mockResolvedValueOnce({ username: 'coach_user' })
+    renderWithRouter(<Login />)
+
+    await userEvent.type(screen.getByLabelText(/Username/i), 'coach_user')
+    await userEvent.type(screen.getByLabelText(/Password/i), 'coach123')
+    await userEvent.click(screen.getByRole('button', { name: /Sign in/i }))
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/select-sport')
     })
   })
 

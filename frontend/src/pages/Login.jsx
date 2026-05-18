@@ -3,37 +3,18 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 
-const THEMES = {
-  football: {
-    bg: 'from-emerald-950 via-emerald-900 to-green-800',
-    accent: '#34d399',
-    label: '⚽ Football',
-    ring: 'focus:ring-emerald-500',
-    btn: 'bg-emerald-500 hover:bg-emerald-400',
-  },
-  marathon: {
-    bg: 'from-orange-950 via-orange-900 to-red-800',
-    accent: '#fb923c',
-    label: '🏃 Marathon',
-    ring: 'focus:ring-orange-500',
-    btn: 'bg-orange-500 hover:bg-orange-400',
-  },
-}
-
 const DOTS = [
-  { top: '8%',  left: '6%',  delay: '0s',    size: 6  },
-  { top: '18%', left: '88%', delay: '0.6s',  size: 4  },
-  { top: '45%', left: '4%',  delay: '1.1s',  size: 8  },
-  { top: '70%', left: '92%', delay: '0.3s',  size: 5  },
-  { top: '85%', left: '12%', delay: '0.9s',  size: 4  },
-  { top: '60%', left: '80%', delay: '1.4s',  size: 7  },
+  { top: '8%',  left: '6%',  delay: '0s',   size: 6 },
+  { top: '18%', left: '88%', delay: '0.6s', size: 4 },
+  { top: '45%', left: '4%',  delay: '1.1s', size: 8 },
+  { top: '70%', left: '92%', delay: '0.3s', size: 5 },
+  { top: '85%', left: '12%', delay: '0.9s', size: 4 },
+  { top: '60%', left: '80%', delay: '1.4s', size: 7 },
 ]
 
 export default function Login() {
   const { login }  = useAuth()
   const navigate   = useNavigate()
-  const sport      = localStorage.getItem('selected_sport') || 'football'
-  const theme      = THEMES[sport] || THEMES.football
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -44,7 +25,8 @@ export default function Login() {
     setLoading(true)
     try {
       await login(username, password)
-      navigate('/home')
+      const sport = localStorage.getItem('selected_sport')
+      navigate(sport ? '/home' : '/select-sport')
     } catch (err) {
       const desc = err.response?.data?.error_description || err.response?.data?.error || 'Invalid username or password'
       toast.error(desc)
@@ -68,7 +50,7 @@ export default function Login() {
         .form-card  { animation: slideUp 0.5s ease both; }
       `}</style>
 
-      <div className={`min-h-screen bg-gradient-to-br ${theme.bg} flex items-center justify-center p-4 relative overflow-hidden`}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center p-4 relative overflow-hidden">
 
         {/* Decorative lines */}
         <div className="absolute inset-0 pointer-events-none">
@@ -84,30 +66,17 @@ export default function Login() {
           <div
             key={i}
             className="dot-float absolute rounded-full bg-white pointer-events-none"
-            style={{
-              top: d.top, left: d.left,
-              width: d.size, height: d.size,
-              opacity: 0.12,
-              animationDelay: d.delay,
-            }}
+            style={{ top: d.top, left: d.left, width: d.size, height: d.size, opacity: 0.08, animationDelay: d.delay }}
           />
         ))}
 
         {/* Card */}
         <div className="form-card relative z-10 w-full max-w-sm">
 
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <p className="text-white text-xl font-bold tracking-tight">Sign in</p>
-              <p className="text-xs mt-0.5" style={{ color: theme.accent }}>{theme.label}</p>
-            </div>
-            <button
-              onClick={() => navigate('/')}
-              className="text-xs text-white/40 hover:text-white/70 transition-colors"
-            >
-              ← Change sport
-            </button>
+          {/* Logo / brand */}
+          <div className="mb-8 text-center">
+            <p className="text-2xl font-bold text-white tracking-tight">SportAnalytics</p>
+            <p className="text-xs mt-1 text-white/40">Sign in to your account</p>
           </div>
 
           {/* Form */}
@@ -116,7 +85,7 @@ export default function Login() {
               <label htmlFor="username" className="block text-xs font-medium text-white/60 mb-1.5">Username</label>
               <input
                 id="username"
-                className={`w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:ring-2 ${theme.ring} focus:border-transparent transition-all`}
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 placeholder="your username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -129,7 +98,7 @@ export default function Login() {
               <input
                 id="password"
                 type="password"
-                className={`w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:ring-2 ${theme.ring} focus:border-transparent transition-all`}
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -140,7 +109,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full ${theme.btn} text-white text-sm font-semibold py-2.5 rounded-xl transition-all duration-200 disabled:opacity-50 mt-2`}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold py-2.5 rounded-xl transition-all duration-200 disabled:opacity-50 mt-2"
             >
               {loading ? 'Signing in…' : 'Sign in →'}
             </button>

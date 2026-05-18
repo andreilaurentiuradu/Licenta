@@ -27,9 +27,17 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/"         element={<SportSelect />} />
-        <Route path="/login"    element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/"             element={<Navigate to="/login" replace />} />
+        <Route path="/login"        element={<Login />} />
+        <Route path="/register"     element={<Register />} />
+        <Route
+          path="/select-sport"
+          element={
+            <ProtectedRoute>
+              <SportSelect />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/home"
           element={
@@ -70,7 +78,7 @@ export default function App() {
             </AdminRoute>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </AuthProvider>
   )

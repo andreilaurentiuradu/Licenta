@@ -9,23 +9,35 @@ const THEMES = {
 const FAQS = [
   {
     q: 'What is SportAnalytics?',
-    a: 'SportAnalytics is a SaaS platform that uses Federated Learning to predict player injury risk and support tactical decisions — without exposing raw player data to any third party.',
-  },
-  {
-    q: 'How does Federated Learning protect my data?',
-    a: 'Your raw biometric and performance data never leaves your infrastructure. Only the mathematical model weights (parameters) are shared with the central server for aggregation.',
+    a: 'SportAnalytics is a platform for sports clubs that centralises player metrics — biometrics, training load, physical assessments, injury history, nutrition, sleep and stress — and uses AI to support coaches in preventing injuries and optimising performance.',
   },
   {
     q: 'What roles are available?',
-    a: 'Two roles: Coach — manages players and views predictions for their own team. Admin — full platform access including federation management.',
+    a: 'Three roles: Player — views and logs only their own metrics. Coach — views and manages all players in their team. Admin — full platform access including user creation.',
   },
   {
-    q: 'How do I add a player? (Sprint 2)',
-    a: 'After logging in, navigate to the Players section. Click "Add player" and enter their public data: name, position, age, height, weight and nationality.',
+    q: 'How do I record player data?',
+    a: 'Log in as a player or coach, navigate to a player profile and select the relevant tab: Training, Physical, Injuries or Wellness. Use the "+ Add entry" button and fill in the form. All data is filterable by date range.',
   },
   {
-    q: 'How is the injury risk score calculated?',
-    a: 'A neural network trained via Federated Learning across all participating clubs produces a risk score (0–100%). The global model improves with every FL round.',
+    q: 'Can a player see a coach\'s data or another player\'s data?',
+    a: 'No. A player can only access their own metrics. Coaches and admins can view all players. Access is enforced at the API level on every request.',
+  },
+  {
+    q: 'What does Federated Learning mean for my data?',
+    a: 'Coming in Sprint 3: raw player data never leaves your infrastructure. Only model weights are shared with the central server for aggregation (FedAvg). Your data is never visible to other clubs.',
+  },
+  {
+    q: 'Will there be AI-powered recommendations?',
+    a: 'Yes — Sprint 3 will include personalised recommendations generated via OpenAI based on each player\'s current metrics, injury history and wellness trends.',
+  },
+  {
+    q: 'Can I connect a smartwatch?',
+    a: 'Samsung Gear S3 integration is planned for Sprint 3. Heart rate, sleep stages and stress index will be ingested in real time via the Tizen companion API, eliminating manual data entry.',
+  },
+  {
+    q: 'How will coach alerts work?',
+    a: 'Sprint 3 will introduce threshold-based alerts: coaches receive a notification when a player\'s metrics indicate elevated risk — for example a sustained drop in sleep quality, high stress over multiple days, or a pattern linked to previous injuries.',
   },
 ]
 

@@ -4,6 +4,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 STACK="sportanalytics"
 
+# Load .env so docker stack deploy picks up secrets (e.g. OPENAI_API_KEY)
+if [ -f "$ROOT/.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "$ROOT/.env"
+  set +a
+fi
+
 # ── FL pip deps installed inline (no separate requirements) ────────────────
 FL_DEPS="numpy pandas scikit-learn"
 NB_DEPS="notebook numpy pandas scikit-learn matplotlib"

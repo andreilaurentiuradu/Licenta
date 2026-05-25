@@ -6,6 +6,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 class Config:
     SECRET_KEY       = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
     KEYCLOAK_URL     = os.environ.get("KEYCLOAK_URL", "http://localhost:8180")
+    GROQ_API_KEY     = os.environ.get("GROQ_API_KEY", "")
     KEYCLOAK_REALM   = "sport-analytics"
     KEYCLOAK_CLIENT_ID  = "sport-analytics-client"
     KEYCLOAK_ADMIN_USER = "admin"

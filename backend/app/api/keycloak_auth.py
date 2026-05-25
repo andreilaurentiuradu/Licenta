@@ -137,11 +137,15 @@ def _create_user_in_keycloak(username: str, email: str, password: str, role: str
         return {"error": "User created but could not be retrieved"}, 500
     user_id = users[0]["id"]
 
-    # 3. Force-clear requiredActions
+    # 3. Force-clear requiredActions and guarantee club attribute is set
     full_user = requests.get(f"{base}/users/{user_id}", headers=headers, timeout=10).json()
     full_user["requiredActions"] = []
     full_user["emailVerified"]   = True
     full_user["enabled"]         = True
+    if club:
+        attrs = full_user.get("attributes") or {}
+        attrs["club"] = [club]
+        full_user["attributes"] = attrs
     requests.put(f"{base}/users/{user_id}", json=full_user, headers=headers, timeout=10)
 
     # 4. Assign role
@@ -207,15 +211,32 @@ def admin_create_user():
         return jsonify({"error": "Unexpected error", "detail": str(exc)}), 500
 
 
+def _fetch_user_club(user_id: str) -> str | None:
+    """Fetch the 'club' attribute directly from Keycloak — used when JWT claim is absent."""
+    try:
+        token   = _admin_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        base    = f"{_keycloak_url()}/admin/realms/{_realm()}"
+        resp    = requests.get(f"{base}/users/{user_id}", headers=headers, timeout=5)
+        if resp.status_code == 200:
+            attrs = resp.json().get("attributes") or {}
+            vals  = attrs.get("club") or []
+            return vals[0] if vals else None
+    except Exception:
+        pass
+    return None
+
+
 @keycloak_auth_bp.get("/me")
 @keycloak_required()
 def me():
     """Return current user info decoded from the Keycloak JWT."""
-    c = request.kc_claims
+    c    = request.kc_claims
+    club = c.get("club") or _fetch_user_club(c.get("sub", ""))
     return jsonify({
         "sub":      c.get("sub"),
         "username": c.get("preferred_username"),
         "email":    c.get("email"),
         "roles":    c.get("realm_access", {}).get("roles", []),
-        "club":     c.get("club"),
+        "club":     club,
     })

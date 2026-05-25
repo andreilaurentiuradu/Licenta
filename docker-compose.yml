@@ -61,6 +61,7 @@ services:
       FLASK_ENV: development
       KEYCLOAK_URL: http://keycloak:8080
       DATABASE_URL: postgresql://sa_user:sa_pass@postgres:5432/sportanalytics
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
     deploy:
       replicas: 1
       restart_policy:

@@ -8,7 +8,7 @@ POST /api/fl/train  — Coach/admin triggers an FL training round for their club
 
 from datetime import date, timedelta
 from flask import Blueprint, request, jsonify
-from app.api.keycloak_auth import keycloak_required
+from app.api.keycloak_auth import keycloak_required, _fetch_user_club
 from app.models import PlayerProfile, WellnessLog
 
 fl_bp = Blueprint("fl", __name__)
@@ -23,6 +23,8 @@ def trigger_fl_round():
     roles    = claims.get("realm_access", {}).get("roles", [])
     is_admin = "admin" in roles
     club     = claims.get("club")
+    if not is_admin and not club:
+        club = _fetch_user_club(claims.get("sub", ""))
 
     if is_admin:
         profiles = PlayerProfile.query.all()

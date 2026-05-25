@@ -39,9 +39,15 @@ export function AuthProvider({ children }) {
     const { data } = await apiLogin(username, password)
     localStorage.setItem('access_token',  data.access_token)
     localStorage.setItem('refresh_token', data.refresh_token)
-    const parsed = parseToken(data.access_token)
-    setUser(parsed)
-    return parsed
+    try {
+      const meRes = await getMe()
+      setUser(meRes.data)
+      return meRes.data
+    } catch {
+      const parsed = parseToken(data.access_token)
+      setUser(parsed)
+      return parsed
+    }
   }
 
   const logout = () => {

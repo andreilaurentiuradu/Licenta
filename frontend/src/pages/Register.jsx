@@ -19,7 +19,7 @@ export default function Register() {
 
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
-    username: '', email: '', password: '', confirm: '', role: 'coach', sport: 'football',
+    username: '', email: '', password: '', confirm: '', role: 'coach', club: '', sport: 'football',
   })
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
@@ -33,7 +33,7 @@ export default function Register() {
     setLoading(true)
     try {
       localStorage.setItem('selected_sport', form.sport)
-      await register({ username: form.username, email: form.email, password: form.password, role: form.role })
+      await register({ username: form.username, email: form.email, password: form.password, role: form.role, club: form.club || undefined })
       toast.success('Account created! Please sign in.')
       navigate('/login')
     } catch (err) {
@@ -137,6 +137,16 @@ export default function Register() {
                   required
                 />
               </div>
+            </div>
+            <div>
+              <label htmlFor="club" className="block text-xs font-medium text-white/60 mb-1.5">Club name</label>
+              <input
+                id="club"
+                className={inputClass}
+                placeholder="e.g. FC Demo"
+                value={form.club}
+                onChange={(e) => set('club', e.target.value)}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

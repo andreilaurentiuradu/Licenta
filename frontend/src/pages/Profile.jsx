@@ -37,6 +37,7 @@ export default function Profile() {
   const INFO_ROWS = [
     { label: 'Username', value: user?.username ?? '—' },
     { label: 'Email',    value: user?.email    ?? '—' },
+    { label: 'Club',     value: user?.club     ?? '—' },
     { label: 'Sport',    value: sport.charAt(0).toUpperCase() + sport.slice(1) },
     { label: 'Role',     value: role.text },
   ]

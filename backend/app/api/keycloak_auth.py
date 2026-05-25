@@ -99,7 +99,7 @@ ALL_ROLES       = ("admin", "coach", "player")
 PUBLIC_ROLES    = ("coach", "player")
 
 
-def _create_user_in_keycloak(username: str, email: str, password: str, role: str):
+def _create_user_in_keycloak(username: str, email: str, password: str, role: str, club: str = None):
     """Create a Keycloak user with credentials + assign realm role. Returns (resp_dict, status_code)."""
     token   = _admin_token()
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
@@ -120,6 +120,8 @@ def _create_user_in_keycloak(username: str, email: str, password: str, role: str
             "temporary": False,
         }],
     }
+    if club:
+        create_payload["attributes"] = {"club": [club]}
     create_resp = requests.post(f"{base}/users", json=create_payload, headers=headers, timeout=10)
     if create_resp.status_code == 409:
         return {"error": "Username or email already exists"}, 409
@@ -170,7 +172,10 @@ def register():
         return jsonify({"error": f"role must be one of {list(PUBLIC_ROLES)}"}), 400
 
     try:
-        body, code = _create_user_in_keycloak(data["username"], data["email"], data["password"], data["role"])
+        body, code = _create_user_in_keycloak(
+            data["username"], data["email"], data["password"], data["role"],
+            club=data.get("club"),
+        )
         return jsonify(body), code
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), 503
@@ -191,7 +196,10 @@ def admin_create_user():
         return jsonify({"error": f"role must be one of {list(ALL_ROLES)}"}), 400
 
     try:
-        body, code = _create_user_in_keycloak(data["username"], data["email"], data["password"], data["role"])
+        body, code = _create_user_in_keycloak(
+            data["username"], data["email"], data["password"], data["role"],
+            club=data.get("club"),
+        )
         return jsonify(body), code
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), 503
@@ -209,4 +217,5 @@ def me():
         "username": c.get("preferred_username"),
         "email":    c.get("email"),
         "roles":    c.get("realm_access", {}).get("roles", []),
+        "club":     c.get("club"),
     })

@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import { triggerFLRound } from '../api/fl'
+import toast from 'react-hot-toast'
 
 const THEMES = {
   football: { bg: 'from-emerald-950 via-emerald-900 to-green-800', accent: '#34d399', label: '⚽ Football' },
@@ -40,9 +43,9 @@ const ROLE_BADGE = {
 }
 
 const ROLE_DESC = {
-  admin:  'Administrator access · Full platform control',
-  coach:  'Coach access · View and manage all player metrics',
-  player: 'Player access · Personal stats, training and wellness',
+  admin:  (club) => `Administrator access · Full platform control${club ? ` · ${club}` : ''}`,
+  coach:  (club) => `Coach · ${club || 'No club assigned'} · Manage players & FL training`,
+  player: (club) => `Player · ${club || 'No club assigned'} · Personal stats & recommendations`,
 }
 
 function pickRole(roles) {
@@ -50,6 +53,75 @@ function pickRole(roles) {
   if (roles?.includes('coach'))  return 'coach'
   if (roles?.includes('player')) return 'player'
   return 'coach'
+}
+
+function FLPanel({ club }) {
+  const [loading, setLoading] = useState(false)
+  const [result,  setResult]  = useState(null)
+
+  const handleTrain = async () => {
+    setLoading(true)
+    setResult(null)
+    try {
+      const { data } = await triggerFLRound()
+      setResult(data)
+      if (data.warning) toast(data.warning, { icon: '⚠️', duration: 7000 })
+      else toast.success('FL training round completed')
+    } catch {
+      toast.error('Failed to start training round')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="mb-6 p-5 rounded-2xl bg-white/8 border border-white/10">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-sm font-semibold text-white">Federated Learning</p>
+          <p className="text-xs text-white/40 mt-0.5">
+            {club ? `${club} · ` : ''}Train injury-prediction model. Raw data never leaves the club.
+          </p>
+        </div>
+        <button
+          onClick={handleTrain}
+          disabled={loading}
+          className="shrink-0 px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-white text-xs font-semibold transition-all"
+        >
+          {loading ? 'Training…' : 'Start round →'}
+        </button>
+      </div>
+
+      {result && (
+        <div className="mt-4 space-y-2">
+          {result.warning && (
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              <span className="text-amber-400 text-xs mt-0.5">⚠</span>
+              <p className="text-xs text-amber-300">{result.warning}</p>
+            </div>
+          )}
+          {result.trained && (
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="p-2 rounded-lg bg-white/5">
+                <p className="text-base font-bold text-white">{result.players_in_round}</p>
+                <p className="text-xs text-white/40">Players</p>
+              </div>
+              <div className="p-2 rounded-lg bg-white/5">
+                <p className="text-base font-bold text-white">{result.players_with_recent_data}</p>
+                <p className="text-xs text-white/40">New data</p>
+              </div>
+              <div className="p-2 rounded-lg bg-white/5">
+                <p className="text-base font-bold text-indigo-300">
+                  {(result.simulated_accuracy * 100).toFixed(1)}%
+                </p>
+                <p className="text-xs text-white/40">Accuracy</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function Home() {
@@ -61,6 +133,7 @@ export default function Home() {
   const isAdmin          = role === 'admin'
   const isCoach          = role === 'coach'
   const isPlayer         = role === 'player'
+  const club             = user?.club
   const roleBadge        = ROLE_BADGE[role]
   const navCards         = isAdmin
     ? [...BASE_CARDS, ADMIN_CARD]
@@ -128,7 +201,7 @@ export default function Home() {
               <span style={{ color: theme.accent }}>{user?.username}</span>
             </h1>
             <p className="text-white/40 text-sm mt-2">
-              {ROLE_DESC[role]}
+              {ROLE_DESC[role](club)}
             </p>
           </div>
 
@@ -177,6 +250,9 @@ export default function Home() {
               </>
             )}
           </div>
+
+          {/* FL panel — coach only */}
+          {isCoach && <FLPanel club={club} />}
 
           {/* Sign out */}
           <div className="text-center">

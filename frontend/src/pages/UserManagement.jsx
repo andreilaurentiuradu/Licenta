@@ -29,7 +29,7 @@ export default function UserManagement() {
 
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
-    username: '', email: '', password: '', confirm: '', role: 'coach',
+    username: '', email: '', password: '', confirm: '', role: 'coach', club: '',
   })
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
@@ -47,9 +47,10 @@ export default function UserManagement() {
         email:    form.email,
         password: form.password,
         role:     form.role,
+        club:     form.club || undefined,
       })
       toast.success(`${form.role.charAt(0).toUpperCase() + form.role.slice(1)} "${form.username}" created!`)
-      setForm({ username: '', email: '', password: '', confirm: '', role: 'coach' })
+      setForm({ username: '', email: '', password: '', confirm: '', role: 'coach', club: '' })
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to create user')
     } finally {
@@ -139,6 +140,16 @@ export default function UserManagement() {
                     required
                   />
                 </div>
+              </div>
+              <div>
+                <label htmlFor="club" className="block text-xs font-medium text-white/60 mb-1.5">Club name</label>
+                <input
+                  id="club"
+                  className={inputClass}
+                  placeholder="e.g. FC Demo"
+                  value={form.club}
+                  onChange={(e) => set('club', e.target.value)}
+                />
               </div>
               <div>
                 <label htmlFor="role" className="block text-xs font-medium text-white/60 mb-1.5">Role</label>

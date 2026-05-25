@@ -4,19 +4,123 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 STACK="sportanalytics"
 
+# ── FL pip deps installed inline (no separate requirements) ────────────────
+FL_DEPS="numpy pandas scikit-learn"
+NB_DEPS="notebook numpy pandas scikit-learn matplotlib"
+
 usage() {
-  echo "Usage: $0 {build|start|stop|restart|status|logs [service]|test [backend|frontend]|seed}"
-  echo ""
-  echo "  build              Build backend + frontend Docker images"
-  echo "  start              Init swarm + deploy stack"
-  echo "  stop               Remove the stack"
-  echo "  restart            stop → build → start"
-  echo "  status             Show running services"
-  echo "  logs [service]     Tail logs (postgres | keycloak | backend | frontend)"
-  echo "  test [scope]       Run unit tests (backend | frontend | all)"
-  echo "  seed               Create demo player accounts and populate mock data"
+  cat <<'EOF'
+SportAnalytics — Predictive Analytics Platform
+Privacy-by-Design · Federated Learning · Injury Prediction
+
+Usage: ./run.sh <command> [args]
+
+  INFRASTRUCTURE
+    build                Build backend + frontend Docker images
+    start                Init Docker Swarm and deploy stack
+    stop                 Remove the running stack
+    restart              stop → build → start (full redeploy)
+    status               Show running services and replicas
+    logs [service]       Tail service logs  (postgres|keycloak|backend|frontend)
+
+  DATA
+    seed                 Create demo accounts (admin / coach / 3 players)
+                         and populate 90 days of mock metrics in the DB
+    db                   Open a psql shell in the running Postgres container
+
+  TESTING
+    test [scope]         Run unit tests  (backend | frontend | all)
+
+  FEDERATED LEARNING
+    fl [clubs] [rounds]  Simulate FedAvg injury-prediction training
+                         clubs  — number of sports clubs  (default: 4)
+                         rounds — FL communication rounds (default: 10)
+                         Requires: backend/models/data.csv  (Kaggle dataset)
+
+    notebook             Start Jupyter server with the ML/FL notebooks
+                         Opens on http://localhost:8888
+                         Requires: backend/models/data.csv  (Kaggle dataset)
+
+Examples:
+  ./run.sh build && ./run.sh start
+  ./run.sh seed
+  ./run.sh fl 6 20
+  ./run.sh notebook
+  ./run.sh logs backend
+  ./run.sh test all
+  ./run.sh db
+EOF
   exit 1
 }
+
+
+# ── Infrastructure ─────────────────────────────────────────────────────────
+
+build_images() {
+  echo "[build] Building backend image..."
+  docker build -t sportanalytics-backend:latest "$ROOT/backend"
+
+  echo "[build] Building frontend image..."
+  docker build -t sportanalytics-frontend:latest "$ROOT/frontend"
+
+  echo "[build] Pruning dangling images..."
+  docker image prune -f
+
+  echo "[build] Done."
+}
+
+swarm_init() {
+  if ! docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q active; then
+    echo "[swarm] Initialising Docker Swarm..."
+    docker swarm init
+  else
+    echo "[swarm] Swarm already active."
+  fi
+}
+
+stack_deploy() {
+  echo "[deploy] Deploying stack '$STACK'..."
+  cd "$ROOT"
+  docker stack deploy -c docker-compose.yml "$STACK"
+
+  cat <<'EOF'
+
+  Services:
+    Postgres   → localhost:5432
+    Keycloak   → http://localhost:8180   (admin / admin123)
+    Backend    → http://localhost:5000
+    Frontend   → http://localhost:3000
+
+  Demo accounts (run ./run.sh seed first):
+    admin1   / admin123    role: admin
+    coach1   / coach123    role: coach
+    player1  / player123   role: player
+    player2  / player123   role: player
+    player3  / player123   role: player
+
+  Tip: ./run.sh logs <service>   to follow a service's output.
+EOF
+}
+
+stack_stop() {
+  echo "[stop] Removing stack '$STACK'..."
+  docker stack rm "$STACK"
+
+  echo "[stop] Waiting for stack to be fully removed..."
+  until ! docker stack ls --format '{{.Name}}' 2>/dev/null | grep -q "^${STACK}$"; do
+    sleep 2
+  done
+
+  echo "[stop] Waiting for overlay network to be removed..."
+  until ! docker network ls --format '{{.Name}}' 2>/dev/null | grep -q "^${STACK}_default$"; do
+    sleep 2
+  done
+
+  echo "[stop] Stack removed."
+}
+
+
+# ── Testing ────────────────────────────────────────────────────────────────
 
 run_backend_tests() {
   echo "[test] Running backend tests (pytest)..."
@@ -40,59 +144,85 @@ run_frontend_tests() {
     sh -c "npm install --silent && npm test"
 }
 
-build_images() {
-  echo "[build] Building backend image..."
-  docker build -t sportanalytics-backend:latest "$ROOT/backend"
 
-  echo "[build] Building frontend image..."
-  docker build -t sportanalytics-frontend:latest "$ROOT/frontend"
+# ── Data ───────────────────────────────────────────────────────────────────
 
-  echo "[build] Cleaning up dangling images..."
-  docker image prune -f
-
-  echo "[build] Done."
+run_seed() {
+  echo "[seed] Seeding demo accounts and mock player metrics..."
+  WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
+  MSYS_NO_PATHCONV=1 docker run --rm \
+    --add-host=host.docker.internal:host-gateway \
+    -v "${WIN_ROOT}/backend:/app" \
+    -w /app \
+    -e KEYCLOAK_URL="http://host.docker.internal:8180" \
+    -e DATABASE_URL="postgresql://sa_user:sa_pass@host.docker.internal:5432/sportanalytics" \
+    python:3.11-slim \
+    bash -c "pip install --no-cache-dir -q -r requirements.txt && python seed.py"
 }
 
-swarm_init() {
-  if ! docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q active; then
-    echo "[swarm] Initialising Docker Swarm..."
-    docker swarm init
-  else
-    echo "[swarm] Already active."
+open_db_shell() {
+  echo "[db] Connecting to Postgres (sportanalytics)..."
+  CONTAINER=$(docker ps --filter "name=${STACK}_postgres" --format "{{.ID}}" | head -1)
+  if [ -z "$CONTAINER" ]; then
+    echo "[db] ERROR: Postgres is not running. Start the stack first: ./run.sh start"
+    exit 1
   fi
+  docker exec -it "$CONTAINER" psql -U sa_user -d sportanalytics
 }
 
-stack_deploy() {
-  echo "[deploy] Deploying stack '$STACK'..."
-  cd "$ROOT"
-  docker stack deploy -c docker-compose.yml "$STACK"
 
+# ── Federated Learning ─────────────────────────────────────────────────────
+
+run_fl_simulate() {
+  N_CLUBS="${1:-4}"
+  FL_ROUNDS="${2:-10}"
+  DATA_FILE="$ROOT/backend/models/data.csv"
+
+  if [ ! -f "$DATA_FILE" ]; then
+    cat <<EOF
+[fl] ERROR: Kaggle dataset not found.
+
+  Expected path : backend/models/data.csv
+  Download from : https://www.kaggle.com/datasets/
+
+Place data.csv in backend/models/ and re-run: ./run.sh fl ${N_CLUBS} ${FL_ROUNDS}
+EOF
+    exit 1
+  fi
+
+  echo "[fl] Federated Learning simulation — ${N_CLUBS} clubs · ${FL_ROUNDS} rounds"
+  echo "[fl] Privacy guarantee: raw player data never leaves any club."
+  echo "[fl] Only model weights (coef + intercept) are exchanged with the server."
   echo ""
-  echo "  Services:"
-  echo "    Postgres  → localhost:5432"
-  echo "    Keycloak  → http://localhost:8180"
-  echo "    Backend   → http://localhost:5000"
-  echo "    Frontend  → http://localhost:3000"
+
+  WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
+  MSYS_NO_PATHCONV=1 docker run --rm \
+    -v "${WIN_ROOT}/backend:/app" \
+    -w /app \
+    python:3.11-slim \
+    bash -c "pip install --no-cache-dir -q ${FL_DEPS} && \
+             python -m fl.simulate --clubs ${N_CLUBS} --rounds ${FL_ROUNDS}"
+}
+
+run_notebook() {
+  echo "[notebook] Starting Jupyter notebook server..."
+  echo "[notebook] Open http://localhost:8888 in your browser."
+  echo "[notebook] Press Ctrl-C to stop."
   echo ""
-  echo "  Use './run.sh logs <service>' to follow logs."
+
+  WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
+  MSYS_NO_PATHCONV=1 docker run --rm \
+    -v "${WIN_ROOT}/backend/models:/notebooks" \
+    -w /notebooks \
+    -p 8888:8888 \
+    python:3.11-slim \
+    bash -c "pip install --no-cache-dir -q ${NB_DEPS} && \
+             jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root \
+               --NotebookApp.token='' --NotebookApp.password=''"
 }
 
-stack_stop() {
-  echo "[stop] Removing stack '$STACK'..."
-  docker stack rm "$STACK"
 
-  echo "[stop] Waiting for stack to be fully removed..."
-  until ! docker stack ls --format '{{.Name}}' 2>/dev/null | grep -q "^${STACK}$"; do
-    sleep 2
-  done
-
-  echo "[stop] Waiting for overlay network to be removed..."
-  until ! docker network ls --format '{{.Name}}' 2>/dev/null | grep -q "^${STACK}_default$"; do
-    sleep 2
-  done
-
-  echo "[stop] Stack removed."
-}
+# ── Command dispatch ───────────────────────────────────────────────────────
 
 CMD="${1:-}"
 case "$CMD" in
@@ -119,26 +249,26 @@ case "$CMD" in
     SERVICE="${2:-backend}"
     docker service logs "${STACK}_${SERVICE}" -f
     ;;
+  seed)
+    run_seed
+    ;;
+  db)
+    open_db_shell
+    ;;
   test)
     SCOPE="${2:-all}"
     case "$SCOPE" in
       backend)  run_backend_tests ;;
       frontend) run_frontend_tests ;;
       all)      run_backend_tests && run_frontend_tests ;;
-      *)        echo "Unknown test scope: $SCOPE"; usage ;;
+      *)        echo "Unknown test scope: '$SCOPE'  (use: backend | frontend | all)"; exit 1 ;;
     esac
     ;;
-  seed)
-    echo "[seed] Running seed script against running stack..."
-    WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
-    MSYS_NO_PATHCONV=1 docker run --rm \
-      --add-host=host.docker.internal:host-gateway \
-      -v "${WIN_ROOT}/backend:/app" \
-      -w /app \
-      -e KEYCLOAK_URL="http://host.docker.internal:8180" \
-      -e DATABASE_URL="postgresql://sa_user:sa_pass@host.docker.internal:5432/sportanalytics" \
-      python:3.11-slim \
-      bash -c "pip install --no-cache-dir -q -r requirements.txt && python seed.py"
+  fl)
+    run_fl_simulate "${2:-4}" "${3:-10}"
+    ;;
+  notebook)
+    run_notebook
     ;;
   *)
     usage

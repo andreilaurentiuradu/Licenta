@@ -29,6 +29,7 @@ class PlayerProfile(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
     user_id    = db.Column(db.String(36), unique=True, nullable=False)
     username   = db.Column(db.String(64), nullable=False)
+    club       = db.Column(db.String(64))
     position   = db.Column(db.String(32))
     height_cm  = db.Column(db.Float)
     weight_kg  = db.Column(db.Float)
@@ -40,6 +41,7 @@ class PlayerProfile(db.Model):
             "id":         self.id,
             "user_id":    self.user_id,
             "username":   self.username,
+            "club":       self.club,
             "position":   self.position,
             "height_cm":  self.height_cm,
             "weight_kg":  self.weight_kg,

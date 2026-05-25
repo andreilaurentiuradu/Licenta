@@ -33,6 +33,11 @@ def _date_filter(query, model, from_str, to_str):
 @players_bp.get("/")
 @keycloak_required(roles=["coach", "admin"])
 def list_players():
+    claims    = request.kc_claims
+    roles     = claims.get("realm_access", {}).get("roles", [])
+    is_admin  = "admin" in roles
+    coach_club = claims.get("club") if not is_admin else None
+
     try:
         token   = _admin_token()
         headers = {"Authorization": f"Bearer {token}"}
@@ -51,12 +56,26 @@ def list_players():
     for u in kc_users:
         uid  = u.get("id")
         prof = profiles.get(uid)
+
+        # Resolve club: prefer DB profile, fall back to Keycloak attribute
+        kc_club = None
+        kc_attrs = u.get("attributes") or {}
+        if isinstance(kc_attrs.get("club"), list):
+            kc_club = kc_attrs["club"][0]
+        club = (prof.club if prof and prof.club else kc_club)
+
+        # Coach: only see players from their own club
+        if coach_club and club != coach_club:
+            continue
+
         result.append({
             "user_id":  uid,
             "username": u.get("username"),
             "email":    u.get("email"),
+            "club":     club,
             "profile":  prof.to_dict() if prof else None,
         })
+
     return jsonify(result)
 
 
@@ -81,12 +100,45 @@ def upsert_biometrics(user_id):
     if not prof:
         prof = PlayerProfile(user_id=user_id, username=data.get("username", user_id))
         db.session.add(prof)
-    for field in ("username", "position", "height_cm", "weight_kg", "birth_year"):
+    for field in ("username", "club", "position", "height_cm", "weight_kg", "birth_year"):
         if field in data:
             setattr(prof, field, data[field])
     prof.updated_at = datetime.now(timezone.utc)
     db.session.commit()
     return jsonify(prof.to_dict())
+
+
+# ── Recommendations ───────────────────────────────────────────────
+
+@players_bp.get("/<user_id>/recommendations")
+@keycloak_required()
+def get_recommendations(user_id):
+    if not _can_access(user_id):
+        return jsonify({"error": "Forbidden"}), 403
+
+    # Default recommendation set (Sprint 3: replace with OpenAI-personalised output)
+    return jsonify({
+        "injury_risk":   "low",
+        "last_updated":  datetime.now(timezone.utc).isoformat(),
+        "recommendations": [
+            {
+                "category": "Injury Prevention",
+                "priority": "high",
+                "text": "Prioritise hamstring flexibility and knee strength exercises aligned with your position profile. Consistent warm-up routines significantly reduce ligament injury risk.",
+            },
+            {
+                "category": "Training Load",
+                "priority": "medium",
+                "text": "Maintain current training intensity. Consider adding one extra recovery session per week to reduce cumulative fatigue — especially after match days.",
+            },
+            {
+                "category": "Wellness",
+                "priority": "low",
+                "text": "Sleep and stress metrics are within normal range. Monitor hydration levels closely on match days — even mild dehydration impairs reaction time and agility.",
+            },
+        ],
+        "note": "Recommendations are derived from your recent metrics. Personalised AI-powered insights via OpenAI are planned for Sprint 3.",
+    })
 
 
 # ── Training logs ─────────────────────────────────────────────────

@@ -1,10 +1,12 @@
 """
-Seed script — creates 3 demo player accounts in Keycloak and fills the
+Seed script — creates demo player accounts in Keycloak and fills the
 database with realistic mock data spanning the last 90 days.
 
-Run from repo root while the stack is up:
-    python backend/seed.py
-Or via run.sh:
+Clubs:
+  FC Demo    — coach_user  + player1 / player2 / player3
+  FC Rivals  — coach2_user + player4 / player5
+
+Run while the stack is up:
     ./run.sh seed
 """
 
@@ -21,12 +23,18 @@ KC_REALM = "sport-analytics"
 DB_URL   = os.environ.get("DATABASE_URL", "postgresql://sa_user:sa_pass@localhost:5432/sportanalytics")
 
 PLAYERS = [
+    # FC Demo
     {"username": "player1", "email": "player1@demo.ro", "password": "player123",
-     "position": "Midfielder", "height_cm": 178.0, "weight_kg": 74.5, "birth_year": 2000},
+     "club": "FC Demo",   "position": "Midfielder", "height_cm": 178.0, "weight_kg": 74.5, "birth_year": 2000},
     {"username": "player2", "email": "player2@demo.ro", "password": "player123",
-     "position": "Forward",    "height_cm": 182.0, "weight_kg": 78.0, "birth_year": 1998},
+     "club": "FC Demo",   "position": "Forward",    "height_cm": 182.0, "weight_kg": 78.0, "birth_year": 1998},
     {"username": "player3", "email": "player3@demo.ro", "password": "player123",
-     "position": "Defender",   "height_cm": 185.5, "weight_kg": 83.0, "birth_year": 2001},
+     "club": "FC Demo",   "position": "Defender",   "height_cm": 185.5, "weight_kg": 83.0, "birth_year": 2001},
+    # FC Rivals
+    {"username": "player4", "email": "player4@demo.ro", "password": "player123",
+     "club": "FC Rivals", "position": "Forward",    "height_cm": 179.0, "weight_kg": 76.0, "birth_year": 1999},
+    {"username": "player5", "email": "player5@demo.ro", "password": "player123",
+     "club": "FC Rivals", "position": "Goalkeeper", "height_cm": 191.0, "weight_kg": 88.0, "birth_year": 2002},
 ]
 
 random.seed(42)
@@ -34,17 +42,27 @@ random.seed(42)
 
 # ── Keycloak ───────────────────────────────────────────────────────────────
 
-def admin_token():
-    resp = requests.post(
-        f"{KC_URL}/realms/master/protocol/openid-connect/token",
-        data={"grant_type": "password", "client_id": "admin-cli",
-              "username": "admin", "password": "admin123"},
-        timeout=10,
-    )
-    if resp.status_code != 200:
-        print(f"[KC] Admin auth failed: {resp.text}")
-        sys.exit(1)
-    return resp.json()["access_token"]
+def admin_token(retries=20, delay=6):
+    """Get an admin token, retrying until Keycloak is ready."""
+    import time
+    url = f"{KC_URL}/realms/master/protocol/openid-connect/token"
+    for attempt in range(1, retries + 1):
+        try:
+            resp = requests.post(
+                url,
+                data={"grant_type": "password", "client_id": "admin-cli",
+                      "username": "admin", "password": "admin123"},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                return resp.json()["access_token"]
+            print(f"[KC] Attempt {attempt}/{retries}: HTTP {resp.status_code} — retrying in {delay}s…")
+        except Exception as exc:
+            print(f"[KC] Attempt {attempt}/{retries}: {exc.__class__.__name__} — retrying in {delay}s…")
+        if attempt < retries:
+            time.sleep(delay)
+    print("[KC] Keycloak did not become ready in time.")
+    sys.exit(1)
 
 
 def ensure_kc_player(token, p):
@@ -63,10 +81,15 @@ def ensure_kc_player(token, p):
     create_resp = requests.post(
         f"{base}/users",
         json={
-            "username": p["username"], "email": p["email"],
-            "firstName": p["username"].capitalize(), "lastName": "Demo",
-            "enabled": True, "emailVerified": True, "requiredActions": [],
+            "username":   p["username"],
+            "email":      p["email"],
+            "firstName":  p["username"].capitalize(),
+            "lastName":   "Demo",
+            "enabled":    True,
+            "emailVerified": True,
+            "requiredActions": [],
             "credentials": [{"type": "password", "value": p["password"], "temporary": False}],
+            "attributes":  {"club": [p["club"]]},
         },
         headers=headers, timeout=10,
     )
@@ -84,7 +107,7 @@ def ensure_kc_player(token, p):
         f"{base}/users/{uid}/role-mappings/realm",
         json=[role], headers=headers, timeout=10,
     )
-    print(f"[KC] Created '{p['username']}'  uid={uid}")
+    print(f"[KC] Created '{p['username']}'  uid={uid}  club={p['club']}")
     return uid
 
 
@@ -103,19 +126,25 @@ def seed_player(session, uid, p):
         PlayerProfile, TrainingLog, PhysicalAssessment, InjuryRecord, WellnessLog,
     )
 
+    pos = p["position"]
+
     # Profile
-    if not session.query(PlayerProfile).filter_by(user_id=uid).first():
+    prof = session.query(PlayerProfile).filter_by(user_id=uid).first()
+    if not prof:
         session.add(PlayerProfile(
             user_id=uid, username=p["username"],
-            position=p["position"], height_cm=p["height_cm"],
+            club=p["club"],
+            position=pos, height_cm=p["height_cm"],
             weight_kg=p["weight_kg"], birth_year=p["birth_year"],
         ))
+    elif prof.club != p["club"]:
+        prof.club = p["club"]
 
     today = date.today()
     start = today - timedelta(days=89)
 
     # Training logs — every 2-4 days
-    base_h = {"Midfielder": 1.8, "Forward": 2.0, "Defender": 1.6}[p["position"]]
+    base_h = {"Midfielder": 1.8, "Forward": 2.0, "Defender": 1.6, "Goalkeeper": 1.5}[pos]
     d = start
     while d <= today:
         if not session.query(TrainingLog).filter_by(user_id=uid, date=d).first():
@@ -128,8 +157,8 @@ def seed_player(session, uid, p):
         d += timedelta(days=random.randint(2, 4))
 
     # Physical assessments — every ~2 weeks
-    base_knee  = {"Midfielder": 82.0, "Forward": 79.0, "Defender": 88.0}[p["position"]]
-    base_ham   = {"Midfielder": 70.0, "Forward": 72.0, "Defender": 68.0}[p["position"]]
+    base_knee  = {"Midfielder": 82.0, "Forward": 79.0, "Defender": 88.0, "Goalkeeper": 90.0}[pos]
+    base_ham   = {"Midfielder": 70.0, "Forward": 72.0, "Defender": 68.0, "Goalkeeper": 65.0}[pos]
     base_react = 240.0
     d = start
     while d <= today:
@@ -163,7 +192,7 @@ def seed_player(session, uid, p):
             ))
 
     # Wellness logs — every 1-3 days
-    base_cal = {"Midfielder": 2600, "Forward": 2800, "Defender": 2900}[p["position"]]
+    base_cal = {"Midfielder": 2600, "Forward": 2800, "Defender": 2900, "Goalkeeper": 2700}[pos]
     d = start
     while d <= today:
         if not session.query(WellnessLog).filter_by(user_id=uid, date=d).first():
@@ -183,7 +212,7 @@ def seed_player(session, uid, p):
         d += timedelta(days=random.randint(1, 3))
 
     session.commit()
-    print(f"[DB] Seeded data for '{p['username']}'")
+    print(f"[DB] Seeded data for '{p['username']}'  ({p['club']})")
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
@@ -220,10 +249,11 @@ def main():
 
     print("\n=== Done! ===")
     print("\nDemo accounts:")
-    print("  coach_user  / coach123   (coach — sees all players)")
-    print("  admin_user  / admin123   (admin)")
+    print("  admin_user  / admin123   — admin        — SportAnalytics HQ")
+    print("  coach_user  / coach123   — coach        — FC Demo")
+    print("  coach2_user / coach123   — coach        — FC Rivals")
     for p in PLAYERS:
-        print(f"  {p['username']:<10} / {p['password']}  ({p['position']})")
+        print(f"  {p['username']:<12} / {p['password']}  — player  — {p['club']}  ({p['position']})")
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ function parseToken(token) {
       username: payload.preferred_username,
       email:    payload.email,
       roles:    payload.realm_access?.roles ?? [],
+      club:     payload.club ?? null,
     }
   } catch {
     return null

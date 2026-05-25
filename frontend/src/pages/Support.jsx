@@ -13,7 +13,11 @@ const FAQS = [
   },
   {
     q: 'What roles are available?',
-    a: 'Three roles: Player — views and logs only their own metrics. Coach — views and manages all players in their team. Admin — full platform access including user creation.',
+    a: [
+      'Player — views and logs only their own metrics and recommendations.',
+      'Coach — views and manages all players in their club, triggers Federated Learning training rounds.',
+      'Admin — full platform access including user creation across all clubs.',
+    ],
   },
   {
     q: 'How do I record player data?',
@@ -132,7 +136,18 @@ export default function Support() {
                     overflow: 'hidden',
                     transition: 'max-height 0.3s ease',
                   }}>
-                    <p className="px-5 pb-4 text-sm text-white/50 leading-relaxed">{faq.a}</p>
+                    {Array.isArray(faq.a) ? (
+                      <ul className="px-5 pb-4 space-y-1.5">
+                        {faq.a.map((item, j) => (
+                          <li key={j} className="flex items-start gap-2 text-sm text-white/50 leading-relaxed">
+                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-white/30 shrink-0" />
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="px-5 pb-4 text-sm text-white/50 leading-relaxed">{faq.a}</p>
+                    )}
                   </div>
                 </div>
               ))}

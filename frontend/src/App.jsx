@@ -10,11 +10,12 @@ import Profile          from './pages/Profile'
 import UserManagement   from './pages/UserManagement'
 import PlayersList      from './pages/PlayersList'
 import PlayerLayout     from './pages/PlayerLayout'
-import PlayerBiometrics from './pages/PlayerBiometrics'
-import PlayerTraining   from './pages/PlayerTraining'
-import PlayerPhysical   from './pages/PlayerPhysical'
-import PlayerInjuries   from './pages/PlayerInjuries'
-import PlayerWellness   from './pages/PlayerWellness'
+import PlayerBiometrics      from './pages/PlayerBiometrics'
+import PlayerTraining        from './pages/PlayerTraining'
+import PlayerPhysical        from './pages/PlayerPhysical'
+import PlayerInjuries        from './pages/PlayerInjuries'
+import PlayerWellness        from './pages/PlayerWellness'
+import PlayerRecommendations from './pages/PlayerRecommendations'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -74,11 +75,12 @@ export default function App() {
           element={<ProtectedRoute><PlayerLayout /></ProtectedRoute>}
         >
           <Route index element={<Navigate to="biometrics" replace />} />
-          <Route path="biometrics" element={<PlayerBiometrics />} />
-          <Route path="training"   element={<PlayerTraining />} />
-          <Route path="physical"   element={<PlayerPhysical />} />
-          <Route path="injuries"   element={<PlayerInjuries />} />
-          <Route path="wellness"   element={<PlayerWellness />} />
+          <Route path="biometrics"      element={<PlayerBiometrics />} />
+          <Route path="training"        element={<PlayerTraining />} />
+          <Route path="physical"        element={<PlayerPhysical />} />
+          <Route path="injuries"        element={<PlayerInjuries />} />
+          <Route path="wellness"        element={<PlayerWellness />} />
+          <Route path="recommendations" element={<PlayerRecommendations />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />

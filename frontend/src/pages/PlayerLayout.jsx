@@ -2,11 +2,12 @@ import { Outlet, useNavigate, useParams, NavLink, useSearchParams } from 'react-
 import { useAuth } from '../contexts/AuthContext'
 
 const TABS = [
-  { path: 'biometrics', label: 'Biometrics' },
-  { path: 'training',   label: 'Training'   },
-  { path: 'physical',   label: 'Physical'   },
-  { path: 'injuries',   label: 'Injuries'   },
-  { path: 'wellness',   label: 'Wellness'   },
+  { path: 'biometrics',      label: 'Biometrics'      },
+  { path: 'training',        label: 'Training'        },
+  { path: 'physical',        label: 'Physical'        },
+  { path: 'injuries',        label: 'Injuries'        },
+  { path: 'wellness',        label: 'Wellness'        },
+  { path: 'recommendations', label: 'Recommendations' },
 ]
 
 function pickRole(roles) {

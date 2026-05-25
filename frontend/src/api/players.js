@@ -19,3 +19,5 @@ export const deleteInjury      = (id, rid)    => api.delete(`/players/${id}/inju
 export const getWellness       = (id, params) => api.get(`/players/${id}/wellness`,  { params })
 export const addWellness       = (id, data)   => api.post(`/players/${id}/wellness`, data)
 export const deleteWellness    = (id, lid)    => api.delete(`/players/${id}/wellness/${lid}`)
+
+export const getRecommendations = (id) => api.get(`/players/${id}/recommendations`)

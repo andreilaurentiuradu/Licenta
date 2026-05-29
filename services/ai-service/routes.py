@@ -52,7 +52,7 @@ def _collect_player_context(user_id: str) -> dict:
     total_inj  = InjuryRecord.query.filter_by(user_id=user_id).count()
 
     return {
-        "position":   (prof.club and prof.position) or "Unknown",
+        "position":   (prof.position if prof else None) or "Unknown",
         "birth_year": prof.birth_year if prof else None,
         "wellness": {
             "avg_sleep_hours":   round(w.sleep   or 0, 1),

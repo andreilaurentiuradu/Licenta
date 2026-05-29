@@ -37,7 +37,7 @@ Usage: ./run.sh <command> [args]
     db                   Open a psql shell in the running Postgres container
 
   TESTING
-    test                 Run frontend unit tests (vitest)
+    test [scope]         Run tests: auth|player|fl|ai|feedback|frontend|all (default: all)
 
   FEDERATED LEARNING
     fl [clubs] [rounds]  Simulate FedAvg injury-prediction training
@@ -146,14 +146,26 @@ stack_stop() {
 
 # ── Testing ────────────────────────────────────────────────────────────────
 
-run_frontend_tests() {
-  echo "[test] Running frontend tests (vitest)..."
+run_service_tests() {
+  local SVC="$1"
+  echo "[test] Running ${SVC} tests (pytest)..."
   WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
   MSYS_NO_PATHCONV=1 docker run --rm \
-    -v "${WIN_ROOT}/frontend:/app" \
+    -v "${WIN_ROOT}/services/${SVC}:/app" \
     -w /app \
-    node:20-alpine \
-    sh -c "npm install --silent && npm test"
+    -e DATABASE_URL="sqlite:///:memory:" \
+    -e KEYCLOAK_URL="http://localhost" \
+    -e KEYCLOAK_REALM="test" \
+    python:3.11-slim \
+    bash -c "pip install --no-cache-dir -q -r requirements.txt && pytest tests/ -v --tb=short"
+}
+
+run_frontend_tests() {
+  echo "[test] Running frontend tests (vitest)..."
+  cd "$ROOT/frontend"
+  npm install --silent
+  npm test -- --run
+  cd "$ROOT"
 }
 
 
@@ -274,7 +286,24 @@ case "$CMD" in
     open_db_shell
     ;;
   test)
-    run_frontend_tests
+    SCOPE="${2:-all}"
+    case "$SCOPE" in
+      auth)     run_service_tests auth-service ;;
+      player)   run_service_tests player-service ;;
+      fl)       run_service_tests fl-service ;;
+      ai)       run_service_tests ai-service ;;
+      feedback) run_service_tests feedback-service ;;
+      frontend) run_frontend_tests ;;
+      all)
+        run_service_tests auth-service
+        run_service_tests player-service
+        run_service_tests fl-service
+        run_service_tests ai-service
+        run_service_tests feedback-service
+        run_frontend_tests
+        ;;
+      *) echo "Unknown scope '$SCOPE'  (auth|player|fl|ai|feedback|frontend|all)"; exit 1 ;;
+    esac
     ;;
   fl)
     run_fl_simulate "${2:-4}" "${3:-10}"

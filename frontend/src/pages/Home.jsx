@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { triggerFLRound } from '../api/fl'
+import { triggerFLRound, getFlStatus } from '../api/fl'
 import toast from 'react-hot-toast'
 
 const THEMES = {
@@ -56,8 +56,15 @@ function pickRole(roles) {
 }
 
 function FLPanel({ club }) {
-  const [loading, setLoading] = useState(false)
-  const [result,  setResult]  = useState(null)
+  const [loading,  setLoading]  = useState(false)
+  const [result,   setResult]   = useState(null)
+  const [status,   setStatus]   = useState(null)
+
+  useEffect(() => {
+    getFlStatus()
+      .then(r => setStatus(r.data))
+      .catch(() => {})
+  }, [])
 
   const handleTrain = async () => {
     setLoading(true)
@@ -67,6 +74,8 @@ function FLPanel({ club }) {
       setResult(data)
       if (data.warning) toast(data.warning, { icon: '⚠️', duration: 7000 })
       else toast.success('FL training round completed')
+      // Refresh status after training
+      getFlStatus().then(r => setStatus(r.data)).catch(() => {})
     } catch {
       toast.error('Failed to start training round')
     } finally {
@@ -74,13 +83,16 @@ function FLPanel({ club }) {
     }
   }
 
+  const acc   = status?.accuracy   ?? result?.global_accuracy  ?? null
+  const round = status?.round      ?? result?.fl_round          ?? null
+
   return (
     <div className="mb-6 p-5 rounded-2xl bg-white/8 border border-white/10">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="text-sm font-semibold text-white">Federated Learning</p>
           <p className="text-xs text-white/40 mt-0.5">
-            {club ? `${club} · ` : ''}Train injury-prediction model. Raw data never leaves the club.
+            {club ? `${club} · ` : ''}Injury-prediction model · raw data never leaves the club.
           </p>
         </div>
         <button
@@ -92,31 +104,45 @@ function FLPanel({ club }) {
         </button>
       </div>
 
+      {/* Global model stats */}
+      {status?.ready && (
+        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+          <div className="p-2 rounded-lg bg-white/5">
+            <p className="text-base font-bold text-indigo-300">
+              {acc !== null ? `${(acc * 100).toFixed(1)}%` : '—'}
+            </p>
+            <p className="text-xs text-white/40">Accuracy</p>
+          </div>
+          <div className="p-2 rounded-lg bg-white/5">
+            <p className="text-base font-bold text-white">{round ?? '—'}</p>
+            <p className="text-xs text-white/40">Round</p>
+          </div>
+          <div className="p-2 rounded-lg bg-white/5">
+            <p className="text-base font-bold text-white">{status.clubs_count ?? 0}</p>
+            <p className="text-xs text-white/40">Clubs</p>
+          </div>
+        </div>
+      )}
+
+      {!status?.ready && status !== null && (
+        <p className="mt-3 text-xs text-white/30">
+          Model not initialised — place data.csv in backend/models/ and restart.
+        </p>
+      )}
+
+      {/* Training result */}
       {result && (
-        <div className="mt-4 space-y-2">
+        <div className="mt-3 space-y-2">
           {result.warning && (
             <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
               <span className="text-amber-400 text-xs mt-0.5">⚠</span>
               <p className="text-xs text-amber-300">{result.warning}</p>
             </div>
           )}
-          {result.trained && (
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="p-2 rounded-lg bg-white/5">
-                <p className="text-base font-bold text-white">{result.players_in_round}</p>
-                <p className="text-xs text-white/40">Players</p>
-              </div>
-              <div className="p-2 rounded-lg bg-white/5">
-                <p className="text-base font-bold text-white">{result.players_with_recent_data}</p>
-                <p className="text-xs text-white/40">New data</p>
-              </div>
-              <div className="p-2 rounded-lg bg-white/5">
-                <p className="text-base font-bold text-indigo-300">
-                  {(result.simulated_accuracy * 100).toFixed(1)}%
-                </p>
-                <p className="text-xs text-white/40">Accuracy</p>
-              </div>
-            </div>
+          {result.trained && !result.warning && (
+            <p className="text-xs text-emerald-400">
+              Round {result.fl_round} complete · {result.players_in_round} players
+            </p>
           )}
         </div>
       )}

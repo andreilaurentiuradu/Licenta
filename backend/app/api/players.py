@@ -7,10 +7,23 @@ from sqlalchemy import func
 from app.extensions import db
 from app.models import PlayerProfile, TrainingLog, PhysicalAssessment, InjuryRecord, WellnessLog
 from app.api.keycloak_auth import keycloak_required, _admin_token, _fetch_user_club
+from fl.features import compute_nutrition_score
 
 log = logging.getLogger(__name__)
 
 players_bp = Blueprint("players", __name__)
+
+
+def _fl_trigger(user_id: str):
+    """Schedule an FL update for the club of user_id (fire-and-forget)."""
+    try:
+        prof = PlayerProfile.query.filter_by(user_id=user_id).first()
+        club = prof.club if prof else None
+        if club:
+            from fl.pipeline import trigger_fl_update
+            trigger_fl_update(club, current_app._get_current_object())
+    except Exception as exc:
+        log.debug("[FL] Trigger skipped: %s", exc)
 
 
 def _can_access(target_user_id: str) -> bool:
@@ -319,16 +332,18 @@ def add_training(user_id):
     data = request.get_json(silent=True) or {}
     try:
         entry = TrainingLog(
-            user_id        = user_id,
-            date           = date.fromisoformat(data["date"]),
-            training_hours = data.get("training_hours"),
-            matches_played = data.get("matches_played", 0),
-            notes          = data.get("notes"),
+            user_id          = user_id,
+            date             = date.fromisoformat(data["date"]),
+            training_hours   = data.get("training_hours"),
+            matches_played   = data.get("matches_played", 0),
+            warmup_adherence = data.get("warmup_adherence"),
+            notes            = data.get("notes"),
         )
     except (KeyError, ValueError) as exc:
         return jsonify({"error": str(exc)}), 400
     db.session.add(entry)
     db.session.commit()
+    _fl_trigger(user_id)
     return jsonify(entry.to_dict()), 201
 
 
@@ -368,11 +383,15 @@ def add_physical(user_id):
             knee_strength_score   = data.get("knee_strength_score"),
             hamstring_flexibility = data.get("hamstring_flexibility"),
             reaction_time_ms      = data.get("reaction_time_ms"),
+            balance_test_score    = data.get("balance_test_score"),
+            sprint_speed_10m_s    = data.get("sprint_speed_10m_s"),
+            agility_score         = data.get("agility_score"),
         )
     except (KeyError, ValueError) as exc:
         return jsonify({"error": str(exc)}), 400
     db.session.add(entry)
     db.session.commit()
+    _fl_trigger(user_id)
     return jsonify(entry.to_dict()), 201
 
 
@@ -420,6 +439,7 @@ def add_injury(user_id):
         return jsonify({"error": str(exc)}), 400
     db.session.add(entry)
     db.session.commit()
+    _fl_trigger(user_id)
     return jsonify(entry.to_dict()), 201
 
 
@@ -453,24 +473,31 @@ def add_wellness(user_id):
         return jsonify({"error": "Forbidden"}), 403
     data = request.get_json(silent=True) or {}
     try:
+        cal  = data.get("calories")
+        prot = data.get("protein_g")
+        carb = data.get("carbs_g")
+        fat  = data.get("fat_g")
+        hyd  = data.get("hydration_ml")
         entry = WellnessLog(
-            user_id       = user_id,
-            date          = date.fromisoformat(data["date"]),
-            calories      = data.get("calories"),
-            protein_g     = data.get("protein_g"),
-            carbs_g       = data.get("carbs_g"),
-            fat_g         = data.get("fat_g"),
-            hydration_ml  = data.get("hydration_ml"),
-            sleep_hours   = data.get("sleep_hours"),
-            sleep_quality = data.get("sleep_quality"),
-            stress_level  = data.get("stress_level"),
-            mood_score    = data.get("mood_score"),
-            notes         = data.get("notes"),
+            user_id         = user_id,
+            date            = date.fromisoformat(data["date"]),
+            calories        = cal,
+            protein_g       = prot,
+            carbs_g         = carb,
+            fat_g           = fat,
+            hydration_ml    = hyd,
+            sleep_hours     = data.get("sleep_hours"),
+            sleep_quality   = data.get("sleep_quality"),
+            stress_level    = data.get("stress_level"),
+            mood_score      = data.get("mood_score"),
+            nutrition_score = compute_nutrition_score(cal, prot, carb, fat, hyd),
+            notes           = data.get("notes"),
         )
     except (KeyError, ValueError) as exc:
         return jsonify({"error": str(exc)}), 400
     db.session.add(entry)
     db.session.commit()
+    _fl_trigger(user_id)
     return jsonify(entry.to_dict()), 201
 
 

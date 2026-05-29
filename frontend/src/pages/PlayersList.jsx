@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate }        from 'react-router-dom'
 import { useAuth }            from '../contexts/AuthContext'
 import { getPlayers }         from '../api/players'
-import { triggerFLRound }     from '../api/fl'
+import { triggerFLRound, getFlStatus } from '../api/fl'
 import toast                  from 'react-hot-toast'
 
 function pickRole(roles) {
@@ -15,23 +15,32 @@ function pickRole(roles) {
 // ── FL Training Panel (coach only) ────────────────────────────────
 
 function FLPanel({ club }) {
-  const [status,  setStatus]  = useState(null)   // null | result object
-  const [loading, setLoading] = useState(false)
+  const [flStatus, setFlStatus] = useState(null)
+  const [result,   setResult]   = useState(null)
+  const [loading,  setLoading]  = useState(false)
+
+  useEffect(() => {
+    getFlStatus().then(r => setFlStatus(r.data)).catch(() => {})
+  }, [])
 
   const handleTrain = async () => {
     setLoading(true)
-    setStatus(null)
+    setResult(null)
     try {
       const { data } = await triggerFLRound()
-      setStatus(data)
+      setResult(data)
       if (data.warning) toast(data.warning, { icon: '⚠️', duration: 6000 })
       else toast.success('FL training round completed')
+      getFlStatus().then(r => setFlStatus(r.data)).catch(() => {})
     } catch {
       toast.error('Failed to trigger FL training round')
     } finally {
       setLoading(false)
     }
   }
+
+  const acc   = flStatus?.accuracy ?? null
+  const round = flStatus?.round    ?? null
 
   return (
     <div className="p-5 rounded-2xl bg-white/8 border border-white/10 mb-6">
@@ -52,31 +61,39 @@ function FLPanel({ club }) {
         </button>
       </div>
 
-      {status && (
-        <div className="mt-4 space-y-2">
-          {status.warning && (
+      {/* Global model stats */}
+      {flStatus?.ready && (
+        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+          <div className="p-2 rounded-lg bg-white/5">
+            <p className="text-lg font-bold text-indigo-300">
+              {acc !== null ? `${(acc * 100).toFixed(1)}%` : '—'}
+            </p>
+            <p className="text-xs text-white/40">Accuracy</p>
+          </div>
+          <div className="p-2 rounded-lg bg-white/5">
+            <p className="text-lg font-bold text-white">{round ?? '—'}</p>
+            <p className="text-xs text-white/40">Round</p>
+          </div>
+          <div className="p-2 rounded-lg bg-white/5">
+            <p className="text-lg font-bold text-white">{flStatus.clubs_count ?? 0}</p>
+            <p className="text-xs text-white/40">Clubs</p>
+          </div>
+        </div>
+      )}
+
+      {/* Training result warnings */}
+      {result && (
+        <div className="mt-3 space-y-2">
+          {result.warning && (
             <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
               <span className="text-amber-400 text-xs mt-0.5">⚠</span>
-              <p className="text-xs text-amber-300">{status.warning}</p>
+              <p className="text-xs text-amber-300">{result.warning}</p>
             </div>
           )}
-          {status.trained && (
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="p-2 rounded-lg bg-white/5">
-                <p className="text-lg font-bold text-white">{status.players_in_round}</p>
-                <p className="text-xs text-white/40">Players</p>
-              </div>
-              <div className="p-2 rounded-lg bg-white/5">
-                <p className="text-lg font-bold text-white">{status.players_with_recent_data}</p>
-                <p className="text-xs text-white/40">With new data</p>
-              </div>
-              <div className="p-2 rounded-lg bg-white/5">
-                <p className="text-lg font-bold text-indigo-300">
-                  {(status.simulated_accuracy * 100).toFixed(1)}%
-                </p>
-                <p className="text-xs text-white/40">Accuracy</p>
-              </div>
-            </div>
+          {result.trained && !result.warning && (
+            <p className="text-xs text-emerald-400">
+              Round {result.fl_round} complete · {result.players_in_round} players · weights aggregated via FedAvg
+            </p>
           )}
         </div>
       )}

@@ -6,7 +6,7 @@ class Feedback(db.Model):
     __tablename__ = "feedback"
 
     id         = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id    = db.Column(db.String(36),  nullable=False)   # Keycloak sub
+    user_id    = db.Column(db.String(36),  nullable=False)
     username   = db.Column(db.String(64),  nullable=False)
     ratings    = db.Column(db.JSON,        nullable=False)
     message    = db.Column(db.Text,        nullable=True)
@@ -53,21 +53,24 @@ class PlayerProfile(db.Model):
 class TrainingLog(db.Model):
     __tablename__ = "training_logs"
 
-    id             = db.Column(db.Integer, primary_key=True)
-    user_id        = db.Column(db.String(36), nullable=False, index=True)
-    date           = db.Column(db.Date, nullable=False)
-    training_hours = db.Column(db.Float)
-    matches_played = db.Column(db.Integer, default=0)
-    notes          = db.Column(db.Text)
+    id                = db.Column(db.Integer, primary_key=True)
+    user_id           = db.Column(db.String(36), nullable=False, index=True)
+    date              = db.Column(db.Date, nullable=False)
+    training_hours    = db.Column(db.Float)
+    matches_played    = db.Column(db.Integer, default=0)
+    # 1.0 = warm-up done, 0.0 = skipped — used as Warmup_Routine_Adherence feature
+    warmup_adherence  = db.Column(db.Float)
+    notes             = db.Column(db.Text)
 
     def to_dict(self):
         return {
-            "id":             self.id,
-            "user_id":        self.user_id,
-            "date":           self.date.isoformat(),
-            "training_hours": self.training_hours,
-            "matches_played": self.matches_played,
-            "notes":          self.notes,
+            "id":               self.id,
+            "user_id":          self.user_id,
+            "date":             self.date.isoformat(),
+            "training_hours":   self.training_hours,
+            "matches_played":   self.matches_played,
+            "warmup_adherence": self.warmup_adherence,
+            "notes":            self.notes,
         }
 
 
@@ -80,6 +83,10 @@ class PhysicalAssessment(db.Model):
     knee_strength_score   = db.Column(db.Float)
     hamstring_flexibility = db.Column(db.Float)
     reaction_time_ms      = db.Column(db.Float)
+    # Fields added for full 12-feature FL vector
+    balance_test_score    = db.Column(db.Float)
+    sprint_speed_10m_s    = db.Column(db.Float)
+    agility_score         = db.Column(db.Float)
 
     def to_dict(self):
         return {
@@ -89,6 +96,9 @@ class PhysicalAssessment(db.Model):
             "knee_strength_score":   self.knee_strength_score,
             "hamstring_flexibility": self.hamstring_flexibility,
             "reaction_time_ms":      self.reaction_time_ms,
+            "balance_test_score":    self.balance_test_score,
+            "sprint_speed_10m_s":    self.sprint_speed_10m_s,
+            "agility_score":         self.agility_score,
         }
 
 
@@ -122,33 +132,84 @@ class InjuryRecord(db.Model):
 class WellnessLog(db.Model):
     __tablename__ = "wellness_logs"
 
-    id            = db.Column(db.Integer, primary_key=True)
-    user_id       = db.Column(db.String(36), nullable=False, index=True)
-    date          = db.Column(db.Date, nullable=False)
-    calories      = db.Column(db.Integer)
-    protein_g     = db.Column(db.Float)
-    carbs_g       = db.Column(db.Float)
-    fat_g         = db.Column(db.Float)
-    hydration_ml  = db.Column(db.Integer)
-    sleep_hours   = db.Column(db.Float)
-    sleep_quality = db.Column(db.Integer)
-    stress_level  = db.Column(db.Integer)
-    mood_score    = db.Column(db.Integer)
-    notes         = db.Column(db.Text)
+    id              = db.Column(db.Integer, primary_key=True)
+    user_id         = db.Column(db.String(36), nullable=False, index=True)
+    date            = db.Column(db.Date, nullable=False)
+    calories        = db.Column(db.Integer)
+    protein_g       = db.Column(db.Float)
+    carbs_g         = db.Column(db.Float)
+    fat_g           = db.Column(db.Float)
+    hydration_ml    = db.Column(db.Integer)
+    sleep_hours     = db.Column(db.Float)
+    sleep_quality   = db.Column(db.Integer)
+    stress_level    = db.Column(db.Integer)
+    mood_score      = db.Column(db.Integer)
+    # Derived 0-100 score used as Nutrition_Quality_Score FL feature
+    nutrition_score = db.Column(db.Float)
+    notes           = db.Column(db.Text)
 
     def to_dict(self):
         return {
-            "id":            self.id,
-            "user_id":       self.user_id,
-            "date":          self.date.isoformat(),
-            "calories":      self.calories,
-            "protein_g":     self.protein_g,
-            "carbs_g":       self.carbs_g,
-            "fat_g":         self.fat_g,
-            "hydration_ml":  self.hydration_ml,
-            "sleep_hours":   self.sleep_hours,
-            "sleep_quality": self.sleep_quality,
-            "stress_level":  self.stress_level,
-            "mood_score":    self.mood_score,
-            "notes":         self.notes,
+            "id":              self.id,
+            "user_id":         self.user_id,
+            "date":            self.date.isoformat(),
+            "calories":        self.calories,
+            "protein_g":       self.protein_g,
+            "carbs_g":         self.carbs_g,
+            "fat_g":           self.fat_g,
+            "hydration_ml":    self.hydration_ml,
+            "sleep_hours":     self.sleep_hours,
+            "sleep_quality":   self.sleep_quality,
+            "stress_level":    self.stress_level,
+            "mood_score":      self.mood_score,
+            "nutrition_score": self.nutrition_score,
+            "notes":           self.notes,
+        }
+
+
+# ── Federated Learning ────────────────────────────────────────────────────────
+
+class FLGlobalModel(db.Model):
+    """
+    One row per FL round. The latest row is always the active global model.
+    Keeps history so training progress can be visualised over time.
+    """
+    __tablename__ = "fl_global_models"
+
+    id              = db.Column(db.Integer, primary_key=True)
+    round           = db.Column(db.Integer, default=0, nullable=False)
+    coef_json       = db.Column(db.Text, nullable=False)
+    intercept_json  = db.Column(db.Text, nullable=False)
+    accuracy        = db.Column(db.Float)
+    n_samples_total = db.Column(db.Integer, default=0)
+    clubs_count     = db.Column(db.Integer, default=0)
+    updated_at      = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            "id":              self.id,
+            "round":           self.round,
+            "accuracy":        self.accuracy,
+            "n_samples_total": self.n_samples_total,
+            "clubs_count":     self.clubs_count,
+            "updated_at":      self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class FLClubModel(db.Model):
+    """Latest local model weights for each club. One row per club (upserted)."""
+    __tablename__ = "fl_club_models"
+
+    id             = db.Column(db.Integer, primary_key=True)
+    club           = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    coef_json      = db.Column(db.Text, nullable=False)
+    intercept_json = db.Column(db.Text, nullable=False)
+    n_samples      = db.Column(db.Integer, default=0)
+    updated_at     = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            "club":       self.club,
+            "n_samples":  self.n_samples,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

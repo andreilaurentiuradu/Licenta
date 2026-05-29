@@ -65,6 +65,14 @@ EOF
 # ── Infrastructure ─────────────────────────────────────────────────────────
 
 build_images() {
+  # Copy football dataset into backend so it's included in the Docker image
+  if [ -f "$ROOT/datasets/football_data.csv" ]; then
+    echo "[build] Copying football_data.csv → backend/models/data.csv"
+    cp "$ROOT/datasets/football_data.csv" "$ROOT/backend/models/data.csv"
+  else
+    echo "[build] WARNING: datasets/football_data.csv not found — FL bootstrap will be skipped."
+  fi
+
   echo "[build] Building backend image..."
   docker build -t sportanalytics-backend:latest "$ROOT/backend"
 

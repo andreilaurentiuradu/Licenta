@@ -142,7 +142,7 @@ def fl_status():
     if not global_m:
         return jsonify({
             "ready":   False,
-            "message": "Global model not trained yet. Place data.csv in models/ and restart.",
+            "message": "Global model not trained yet. Place football_data.csv in datasets/ and rebuild.",
         })
 
     club_models = FLClubModel.query.order_by(FLClubModel.updated_at.desc()).all()

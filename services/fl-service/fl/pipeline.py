@@ -24,7 +24,7 @@ import numpy as np
 
 log = logging.getLogger(__name__)
 
-_DATA_CSV   = Path(__file__).parent.parent / "data" / "data.csv"
+_DATA_CSV   = Path(__file__).parent.parent / "data" / "football_data.csv"
 _round_lock = threading.Lock()
 
 

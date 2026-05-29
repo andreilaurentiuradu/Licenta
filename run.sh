@@ -43,11 +43,11 @@ Usage: ./run.sh <command> [args]
     fl [clubs] [rounds]  Simulate FedAvg injury-prediction training
                          clubs  — number of sports clubs  (default: 4)
                          rounds — FL communication rounds (default: 10)
-                         Requires: backend/models/data.csv  (Kaggle dataset)
+                         Requires: datasets/football_data.csv  (Kaggle dataset)
 
     notebook             Start Jupyter server with the ML/FL notebooks
                          Opens on http://localhost:8888
-                         Requires: backend/models/data.csv  (Kaggle dataset)
+                         Requires: datasets/football_data.csv  (Kaggle dataset)
 
 Examples:
   ./run.sh build && ./run.sh start
@@ -67,9 +67,9 @@ EOF
 build_images() {
   # Copy dataset into fl-service build context
   if [ -f "$ROOT/datasets/football_data.csv" ]; then
-    echo "[build] Copying football_data.csv → services/fl-service/models/data.csv"
-    mkdir -p "$ROOT/services/fl-service/models"
-    cp "$ROOT/datasets/football_data.csv" "$ROOT/services/fl-service/models/data.csv"
+    echo "[build] Copying football_data.csv → services/fl-service/data/football_data.csv"
+    mkdir -p "$ROOT/services/fl-service/data"
+    cp "$ROOT/datasets/football_data.csv" "$ROOT/services/fl-service/data/football_data.csv"
   else
     echo "[build] WARNING: datasets/football_data.csv not found — FL bootstrap will be skipped."
   fi
@@ -176,7 +176,7 @@ run_seed() {
   WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
   MSYS_NO_PATHCONV=1 docker run --rm \
     --add-host=host.docker.internal:host-gateway \
-    -v "${WIN_ROOT}/backend:/app" \
+    -v "${WIN_ROOT}/scripts:/app" \
     -w /app \
     -e KEYCLOAK_URL="http://host.docker.internal:8180" \
     -e DATABASE_URL="postgresql://sa_user:sa_pass@host.docker.internal:5432/sportanalytics" \
@@ -200,11 +200,10 @@ open_db_shell() {
 run_fl_simulate() {
   N_CLUBS="${1:-4}"
   FL_ROUNDS="${2:-10}"
-  DATA_FILE="$ROOT/services/fl-service/models/data.csv"
+  DATA_FILE="$ROOT/services/fl-service/data/football_data.csv"
 
-  # Also accept legacy path
   if [ ! -f "$DATA_FILE" ] && [ -f "$ROOT/datasets/football_data.csv" ]; then
-    mkdir -p "$ROOT/services/fl-service/models"
+    mkdir -p "$ROOT/services/fl-service/data"
     cp "$ROOT/datasets/football_data.csv" "$DATA_FILE"
   fi
 
@@ -242,7 +241,7 @@ run_notebook() {
 
   WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
   MSYS_NO_PATHCONV=1 docker run --rm \
-    -v "${WIN_ROOT}/services/fl-service/models:/notebooks" \
+    -v "${WIN_ROOT}/notebooks:/notebooks" \
     -w /notebooks \
     -p 8888:8888 \
     python:3.11-slim \

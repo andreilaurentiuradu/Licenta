@@ -8,9 +8,9 @@ Usage:
     cd services/fl-service
     python -m fl.simulate                           # default 4 clubs, 10 rounds
     python -m fl.simulate --clubs 6 --rounds 20    # custom
-    python -m fl.simulate --data path/to/data.csv
+    python -m fl.simulate --data path/to/football_data.csv
 
-Dataset: place data.csv in services/fl-service/models/
+Dataset: place football_data.csv in services/fl-service/data/
 """
 
 import argparse
@@ -25,7 +25,7 @@ from .model import FEATURES, TARGET, preprocess
 from .server import FLServer
 from .client import FLClient
 
-DEFAULT_DATA   = Path(__file__).parent.parent / 'models' / 'data.csv'
+DEFAULT_DATA   = Path(__file__).parent.parent / 'data' / 'football_data.csv'
 DEFAULT_CLUBS  = 4
 DEFAULT_ROUNDS = 10
 

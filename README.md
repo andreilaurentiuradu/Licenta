@@ -8,12 +8,152 @@ A SaaS platform that helps sports clubs anticipate player injuries, support tact
 
 | Layer | Technology |
 |---|---|
-| Authentication | Keycloak 24 (OIDC, RBAC) |
+| Authentication | Keycloak 24 (OIDC, RBAC, RS256 JWT) |
 | Backend | Python 3.11 · Flask 3 · SQLAlchemy |
 | Database | PostgreSQL 16 |
 | Frontend | React 18 · Vite · Tailwind CSS · Recharts |
-| ML / FL | scikit-learn · Flower (FedAvg) *(planned)* |
+| ML / FL | scikit-learn · custom FedAvg (LogisticRegression, warm-start) |
+| AI Recommendations | Groq API · llama-3.1-8b-instant |
 | Orchestration | Docker Swarm |
+| API Gateway | Nginx (reverse proxy, path-based routing) |
+
+---
+
+## Architecture
+
+### Monolith (previous)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Browser                                                        │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ HTTP
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Frontend  ·  React + Vite  (port 3000)                         │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ HTTP  /api/*
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Backend Flask  (port 5000)  ·  un singur proces                │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  app/api/                                                │   │
+│  │   keycloak_auth.py   →   /api/auth/me                   │   │
+│  │   players.py         →   /api/players/  (CRUD + FL)     │   │
+│  │   fl_api.py          →   /api/fl/       (train/status)  │   │
+│  │   feedback.py        →   /api/feedback/                 │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  fl/  (in-process, same PID)                             │   │
+│  │   pipeline.py   bootstrap + FedAvg                       │   │
+│  │   features.py   feature extraction from DB               │   │
+│  │   model.py      LogisticRegression                       │   │
+│  │   server.py     fed_avg()                                │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  AI Recommendations  (inline in players.py)              │   │
+│  │   Groq LLM  ← called directly from request handler      │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└──────────┬────────────────────────┬────────────────────────────┘
+           │ SQLAlchemy ORM          │ HTTP REST
+           ▼                         ▼
+┌──────────────────┐       ┌─────────────────────────┐
+│  PostgreSQL      │       │  Keycloak  (port 8180)  │
+│  (port 5432)     │       │  JWT · RS256 · JWKS     │
+└──────────────────┘       └─────────────────────────┘
+```
+
+A single container. An FL crash or slow LLM call blocks the entire API.
+
+---
+
+### Microservices (current)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Browser                                                        │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ HTTP
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Frontend  ·  React + Vite  (port 3000)                         │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ HTTP  :5000/api/*
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Gateway  ·  Nginx  (port 5000 → 80)   [Docker Swarm]          │
+│                                                                 │
+│   /api/auth/                        → auth-service:5001        │
+│   /api/players/<id>/recommendations → ai-service:5004          │
+│   /api/players/                     → player-service:5002      │
+│   /api/fl/                          → fl-service:5003          │
+│   /api/feedback/                    → feedback-service:5005    │
+│   /                                 → frontend:3000            │
+└───┬───────────┬──────────┬────────────┬───────────┬────────────┘
+    │           │          │            │           │
+    ▼           ▼          ▼            ▼           ▼
+┌────────┐ ┌────────┐ ┌────────┐ ┌──────────┐ ┌──────────┐
+│ auth   │ │player  │ │  fl    │ │   ai     │ │feedback  │
+│service │ │service │ │service │ │ service  │ │ service  │
+│ :5001  │ │ :5002  │ │ :5003  │ │  :5004   │ │  :5005   │
+│        │ │        │ │        │ │          │ │          │
+│register│ │profile │ │ train  │ │  Groq    │ │ submit   │
+│login   │ │wellness│ │ status │ │  LLM     │ │ list     │
+│me      │ │training│ │FedAvg  │ │ llama-   │ │          │
+│users   │ │physical│ │bootstrap│ │3.1-8b   │ │          │
+│        │ │injuries│ │        │ │          │ │          │
+└───┬────┘ └───┬────┘ └───┬────┘ └────┬─────┘ └────┬─────┘
+    │          │    ▲      │           │             │
+    │          │    │ HTTP │           │             │
+    │          │    │ POST │           │             │
+    │          └────┘      │           │             │
+    │       /internal/trigger          │             │
+    │                                  │             │
+    └──────────┬───────────┴─────────┬─┴─────────────┘
+               │  SQLAlchemy ORM     │
+               │  (shared schema)    │  HTTP REST
+               ▼                     ▼
+┌──────────────────┐       ┌─────────────────────────┐
+│  PostgreSQL      │       │  Keycloak  (port 8180)  │
+│  (port 5432)     │       │  JWT · RS256 · JWKS     │
+│                  │       │  verified independently │
+│  FLGlobalModel   │       │  in each service        │
+│  FLClubModel     │       └─────────────────────────┘
+│  PlayerProfile   │
+│  WellnessLog     │
+│  TrainingLog ... │
+└──────────────────┘
+```
+
+**Federated Learning data flow:**
+
+```
+player-service  ──POST /internal/trigger──►  fl-service
+  (after any                                   │
+   data mutation)                              │ 1. extract_club_dataset()
+                                               │ 2. fine-tune local model
+                                               │    (warm-start from global weights)
+                                               │ 3. save FLClubModel to DB
+                                               │ 4. FedAvg across all clubs
+                                               │    θ_global = Σ (nₖ/n_total) · θₖ
+                                               │ 5. save new FLGlobalModel
+                                               ▼
+                                         GET /api/fl/status  ◄── Frontend (FLPanel)
+```
+
+**Architecture comparison:**
+
+| | Monolith | Microservices |
+|---|---|---|
+| Containers | 1 Flask process | 7 containers (Swarm) |
+| Scaling | all or nothing | per service |
+| Fault isolation | FL crash = API down | services fail independently |
+| Auth | centralised in backend | JWKS verified locally per service |
+| FL trigger | background thread, same process | HTTP inter-service call |
+| AI | inline in request handler | dedicated service, isolated API key |
 
 ---
 
@@ -21,58 +161,95 @@ A SaaS platform that helps sports clubs anticipate player injuries, support tact
 
 ```
 .
-├── docker-compose.yml          # Docker Swarm stack (4 services)
-├── run.sh                      # Build / deploy / test / seed script
+├── docker-compose.yml              # Docker Swarm stack definition
+├── run.sh                          # Build / deploy / test / seed / FL / notebook
+├── datasets/
+│   └── football_data.csv           # Kaggle dataset (injury prediction, ~800 players)
 ├── keycloak/
-│   └── realm-export.json       # Realm config: roles, client, all demo users
-├── backend/
+│   └── realm-export.json           # Realm: roles, client, demo users
+├── gateway/
 │   ├── Dockerfile
+│   └── nginx.conf                  # Path-based reverse proxy to all services
+├── backend/
+│   ├── seed.py                     # Populate mock player data (used by run.sh seed)
 │   ├── requirements.txt
-│   ├── run.py
-│   ├── config.py
-│   ├── seed.py                 # Populate mock player data (idempotent)
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── extensions.py       # SQLAlchemy instance
-│   │   ├── models.py           # Feedback, PlayerProfile, TrainingLog,
-│   │   │                       # PhysicalAssessment, InjuryRecord, WellnessLog
-│   │   └── api/
-│   │       ├── keycloak_auth.py  # Auth endpoints + token decorator
-│   │       ├── feedback.py       # Feedback endpoints
-│   │       └── players.py        # Player metrics endpoints
-│   └── tests/
-│       ├── conftest.py
-│       ├── test_auth_me.py
-│       ├── test_feedback.py
-│       ├── test_keycloak_helpers.py
-│       └── test_register.py
+│   └── models/
+│       ├── data.csv                # Dataset copy for notebooks
+│       ├── prediction-of-injury-with-logisticregression.ipynb
+│       └── federated-learning-injury-prediction.ipynb
+├── services/
+│   ├── auth-service/               # Keycloak integration (port 5001)
+│   │   ├── app.py
+│   │   ├── auth.py                 # JWKS-based JWT verification
+│   │   ├── routes.py               # /api/auth/: login, register, me, create-user
+│   │   ├── requirements.txt
+│   │   └── Dockerfile
+│   ├── player-service/             # Player CRUD + metrics (port 5002)
+│   │   ├── app.py
+│   │   ├── auth.py
+│   │   ├── models.py               # PlayerProfile, TrainingLog, PhysicalAssessment,
+│   │   │                           # InjuryRecord, WellnessLog
+│   │   ├── routes.py               # /api/players/: all metric endpoints
+│   │   ├── requirements.txt
+│   │   └── Dockerfile
+│   ├── fl-service/                 # Federated Learning engine (port 5003)
+│   │   ├── app.py
+│   │   ├── auth.py
+│   │   ├── models.py               # FLGlobalModel, FLClubModel + player read models
+│   │   ├── routes.py               # /api/fl/train, /api/fl/status, /internal/trigger
+│   │   ├── requirements.txt
+│   │   ├── Dockerfile
+│   │   ├── data/
+│   │   │   └── data.csv            # Copied from datasets/ at build time
+│   │   └── fl/
+│   │       ├── model.py            # LogisticRegression definition + 12 FEATURES
+│   │       ├── pipeline.py         # bootstrap_global_model + FedAvg aggregation
+│   │       ├── features.py         # DB → numpy feature vectors + predict_injury_risk
+│   │       ├── server.py           # fed_avg() weighted average implementation
+│   │       ├── client.py           # Local training client
+│   │       └── simulate.py         # Standalone simulation (run.sh fl)
+│   ├── ai-service/                 # AI recommendations via Groq (port 5004)
+│   │   ├── app.py
+│   │   ├── auth.py
+│   │   ├── models.py
+│   │   ├── routes.py               # GET /api/players/<id>/recommendations
+│   │   ├── requirements.txt
+│   │   └── Dockerfile
+│   └── feedback-service/           # Feedback submissions (port 5005)
+│       ├── app.py
+│       ├── auth.py
+│       ├── models.py
+│       ├── routes.py               # /api/feedback/
+│       ├── requirements.txt
+│       └── Dockerfile
 └── frontend/
     ├── Dockerfile
     ├── vite.config.js
     └── src/
-        ├── App.jsx
         ├── api/
-        │   ├── axios.js          # Axios instance with auth header + refresh
-        │   ├── auth.js           # login · register · adminCreateUser · getMe
-        │   └── players.js        # Player metrics API wrappers
+        │   ├── axios.js            # Axios instance: auth header + token refresh
+        │   ├── auth.js             # login · register · adminCreateUser · getMe
+        │   ├── players.js          # Player metrics API wrappers
+        │   └── fl.js               # getFlStatus()
         ├── contexts/
-        │   └── AuthContext.jsx   # JWT parsing (sub, roles), token storage
+        │   └── AuthContext.jsx     # JWT parsing, token storage, getMe fallback
         ├── pages/
-        │   ├── Login.jsx         # Neutral login form (defaults sport to football)
-        │   ├── Register.jsx      # Public registration with role + sport dropdown
-        │   ├── SportSelect.jsx   # Fallback sport picker (post-login, new device)
-        │   ├── Home.jsx          # Role-aware dashboard
-        │   ├── Profile.jsx       # Account info + assigned roles
-        │   ├── Feedback.jsx      # Star-rating feedback form
-        │   ├── Support.jsx       # Support page
-        │   ├── UserManagement.jsx # Admin-only: create users of any role
-        │   ├── PlayersList.jsx   # Coach: list all players; player: self-redirect
-        │   ├── PlayerLayout.jsx  # Shared tab nav + date range picker
+        │   ├── Login.jsx
+        │   ├── Register.jsx
+        │   ├── SportSelect.jsx
+        │   ├── Home.jsx            # Role-aware dashboard with FLPanel
+        │   ├── Profile.jsx
+        │   ├── Feedback.jsx
+        │   ├── Support.jsx
+        │   ├── UserManagement.jsx
+        │   ├── PlayersList.jsx
+        │   ├── PlayerLayout.jsx
         │   ├── PlayerBiometrics.jsx
         │   ├── PlayerTraining.jsx
         │   ├── PlayerPhysical.jsx
         │   ├── PlayerInjuries.jsx
-        │   └── PlayerWellness.jsx
+        │   ├── PlayerWellness.jsx
+        │   └── PlayerRecommendations.jsx
         └── test/
             ├── setup.js
             └── renderWithRouter.jsx
@@ -82,188 +259,216 @@ A SaaS platform that helps sports clubs anticipate player injuries, support tact
 
 ## Running the Application
 
-> **Prerequisites:** Docker Desktop with Swarm mode enabled.
+> **Prerequisites:** Docker Desktop with Swarm mode enabled, `datasets/football_data.csv` present.
 
 ### First run
 
 ```bash
-./run.sh build    # build backend + frontend Docker images
-./run.sh start    # init swarm + deploy all services
-./run.sh seed     # create demo player accounts + populate mock data
+./run.sh build    # build all 7 Docker images (gateway + 5 services + frontend)
+./run.sh start    # init Swarm + deploy stack
+./run.sh seed     # create demo accounts + populate 90 days of mock metrics
 ```
 
-### Subsequent runs (after code changes)
+### After code changes
 
 ```bash
 ./run.sh restart  # stop → rebuild → redeploy
 ```
 
-> After a full restart on a new machine (fresh `pg_data` volume), run `./run.sh seed` once to re-populate player metrics.
+> After a full restart on a new machine (fresh `pg_data` volume), run `./run.sh seed` once to re-populate data.
 
 ### Other commands
 
 ```bash
-./run.sh stop                  # remove the stack
-./run.sh status                # list running services
-./run.sh logs postgres         # tail PostgreSQL logs
-./run.sh logs keycloak         # tail Keycloak logs
-./run.sh logs backend          # tail Flask logs
-./run.sh logs frontend         # tail Vite logs
-./run.sh test backend          # run pytest in Docker
-./run.sh test frontend         # run vitest in Docker
-./run.sh test all              # run all tests
-./run.sh seed                  # seed mock player data (idempotent)
+./run.sh stop                     # remove the stack
+./run.sh status                   # list running services and replicas
+./run.sh logs gateway             # tail Nginx logs
+./run.sh logs auth-service        # tail auth-service logs
+./run.sh logs player-service      # tail player-service logs
+./run.sh logs fl-service          # tail FL service logs (bootstrap + FedAvg rounds)
+./run.sh logs ai-service          # tail AI service logs
+./run.sh logs feedback-service    # tail feedback-service logs
+./run.sh logs frontend            # tail frontend logs
+./run.sh test                     # run frontend unit tests (vitest) in Docker
+./run.sh seed                     # seed mock player data (idempotent)
+./run.sh fl [clubs] [rounds]      # standalone FL simulation (default: 4 clubs, 10 rounds)
+./run.sh notebook                 # start Jupyter server at http://localhost:8888
+./run.sh db                       # open psql shell in the running Postgres container
 ```
 
 ### Service URLs
 
 | Service | URL |
 |---|---|
-| Frontend (React) | http://localhost:3000 |
+| Frontend + API Gateway | http://localhost:5000 |
 | Keycloak admin console | http://localhost:8180 |
-| Backend API | http://localhost:5000 |
-| PostgreSQL | localhost:5432 |
+| PostgreSQL | localhost:5432 (internal only) |
 
 ---
 
 ## Demo Accounts
 
-All accounts are created automatically on Keycloak startup from `realm-export.json`.
+Created automatically from `keycloak/realm-export.json` on first startup.
 
 | Username | Password | Role | Notes |
 |---|---|---|---|
-| `admin_user` | `admin123` | admin | Full platform access |
-| `coach_user` | `coach123` | coach | Sees all players and their metrics |
+| `admin1` | `admin123` | admin | Full platform access |
+| `coach1` | `coach123` | coach | Sees all players in their club |
 | `player1` | `player123` | player | Midfielder · mock data pre-seeded |
 | `player2` | `player123` | player | Forward · mock data pre-seeded |
 | `player3` | `player123` | player | Defender · mock data pre-seeded |
 
 ---
 
-## What is implemented
+## What is Implemented
 
 ### Authentication & RBAC
 
-**Keycloak (identity provider)**
-- Realm `sport-analytics` auto-imported on container startup
+- Keycloak realm `sport-analytics` auto-imported at container startup
 - Three realm roles: `admin`, `coach`, `player`
-- Direct access grants enabled (username + password login)
-- JWT verified via Keycloak JWKS endpoint (RS256, no shared secret)
-- Sport selection stored in `localStorage` — set during registration, defaulted to `football` on first login
+- JWT verified via Keycloak JWKS endpoint (RS256) — independently in each microservice; no shared secret
+- `club` attribute stored in Keycloak user profile; fetched via admin API as fallback when absent from JWT claims
 
-**Backend auth endpoints**
+**Endpoints (auth-service)**
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
+| `POST` | `/api/auth/login` | public | Exchange username + password for JWT |
 | `POST` | `/api/auth/register` | public | Create user with role `coach` or `player` |
 | `POST` | `/api/auth/admin/create-user` | admin | Create user with any role |
-| `GET` | `/api/auth/me` | any token | Return JWT claims (sub, username, email, roles) |
+| `GET` | `/api/auth/me` | any token | Return JWT claims (sub, username, email, roles, club) |
 
-**User management rules**
-- Public registration (`/register`) only accepts `coach` and `player` roles; sport is chosen at registration
-- Admin role can only be assigned by an existing admin via User Management
+### Player Metrics (player-service)
 
-### Player Metrics
-
-**Backend endpoints** — all require a valid token; player can only access their own data, coach/admin can access any player
+All endpoints require a valid JWT. Players can only access their own data; coach and admin can access any player.
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/players/` | List all players (coach/admin only) |
-| `GET/PUT` | `/api/players/<id>/biometrics` | Profile: position, height, weight, birth year |
-| `GET/POST/DELETE` | `/api/players/<id>/training` | Training hours + matches played per day |
-| `GET/POST/DELETE` | `/api/players/<id>/physical` | Knee strength, hamstring flexibility, reaction time |
-| `GET/POST/DELETE` | `/api/players/<id>/injuries` | Injury records with severity and rehab details |
-| `GET/POST/DELETE` | `/api/players/<id>/wellness` | Nutrition macros, hydration, sleep, stress, mood |
+| `GET` | `/api/players/` | List all players in the coach's club |
+| `GET / PUT` | `/api/players/<id>/biometrics` | Position, height, weight, birth year |
+| `GET / POST / DELETE` | `/api/players/<id>/training` | Training hours, matches played, warmup adherence |
+| `GET / POST / DELETE` | `/api/players/<id>/physical` | Knee strength, hamstring, reaction time, balance, sprint speed, agility |
+| `GET / POST / DELETE` | `/api/players/<id>/injuries` | Injury records with severity and rehab details |
+| `GET / POST / DELETE` | `/api/players/<id>/wellness` | Calories, macros, hydration, sleep, stress, mood |
 
-All list endpoints accept `?from=YYYY-MM-DD&to=YYYY-MM-DD` date range filters.
+All list endpoints accept `?from=YYYY-MM-DD&to=YYYY-MM-DD` date filters.
+
+After every data mutation (wellness / training / physical / injury), player-service automatically POSTs to `fl-service /internal/trigger` to schedule a background FL update for that club.
+
+### Federated Learning (fl-service)
+
+Privacy-by-design: raw player data never leaves the service. Only model weights (coefficients + intercept) are exchanged.
+
+**Model:** LogisticRegression with 12 features, `warm_start=True` for incremental fine-tuning.
+
+**12 features** (selected from Kaggle correlation analysis):
+
+| Feature | Source |
+|---|---|
+| Position | PlayerProfile.position (label-encoded) |
+| Previous_Injury_Count | COUNT(InjuryRecord) |
+| Knee_Strength_Score | PhysicalAssessment (latest) |
+| Hamstring_Flexibility | PhysicalAssessment (latest) |
+| Reaction_Time_ms | PhysicalAssessment (latest) |
+| Balance_Test_Score | PhysicalAssessment (latest) |
+| Sprint_Speed_10m_s | PhysicalAssessment (latest) |
+| Agility_Score | PhysicalAssessment (latest) |
+| Sleep_Hours_Per_Night | AVG(WellnessLog.sleep_hours, last 90d) |
+| Stress_Level_Score | AVG(WellnessLog.stress_level, last 90d) |
+| Nutrition_Quality_Score | derived from WellnessLog macros |
+| Warmup_Routine_Adherence | AVG(TrainingLog.warmup_adherence, last 90d) |
+
+**Pipeline:**
+
+1. **Bootstrap (round 0)** — on service startup, trains on `datasets/football_data.csv` (~800 players) and stores initial global weights in `fl_global_models`.
+2. **Per-club update** — triggered automatically after any data mutation:
+   - extracts (X, y) from DB for all players in the club
+   - fine-tunes a local LogisticRegression starting from current global weights
+   - saves club weights to `fl_club_models` (upsert)
+   - runs FedAvg across all clubs: `θ_global = Σ (nₖ / n_total) · θₖ`
+   - saves new row in `fl_global_models` (round + 1)
+3. **Thread safety** — `threading.Lock()` serialises concurrent aggregations.
+
+**Endpoints (fl-service)**
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/fl/train` | coach / admin | Manually trigger FL round for the coach's club |
+| `GET` | `/api/fl/status` | coach / admin | Current global model: round, accuracy, clubs, samples |
+| `POST` | `/internal/trigger` | internal only | Called by player-service after data mutations |
+
+### AI Recommendations (ai-service)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/players/<id>/recommendations` | coach / own player | Generate personalised recommendations |
+
+Collects last 30 days of wellness + training + latest physical assessment and sends to **Groq API** (`llama-3.1-8b-instant`) via OpenAI-compatible client. Returns 3–4 prioritised recommendations across categories: Injury Prevention, Training Load, Wellness, Nutrition, Recovery. Falls back to static defaults if `GROQ_API_KEY` is not set.
+
+To enable: add `GROQ_API_KEY=<your_key>` to `.env` at the project root (automatically picked up by `run.sh`).
+
+### Feedback (feedback-service)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/feedback/` | any token | Submit star-rating feedback (4 aspects) |
+| `GET` | `/api/feedback/` | admin | List all feedback submissions |
 
 ### Database
 
 PostgreSQL 16 — data persists across restarts via named Docker volume `pg_data`.
 
-| Table | Description |
-|---|---|
-| `feedback` | Star-rating feedback submissions |
-| `player_profiles` | Static biometric profile per player |
-| `training_logs` | Daily training hours and match counts |
-| `physical_assessments` | Periodic physical parameter measurements |
-| `injury_records` | Injury history with severity and rehabilitation |
-| `wellness_logs` | Daily nutrition, sleep, stress and mood logs |
+| Table | Service | Description |
+|---|---|---|
+| `player_profiles` | player, fl, ai | Static biometric profile per player |
+| `training_logs` | player, fl, ai | Daily training hours, matches, warmup adherence |
+| `physical_assessments` | player, fl, ai | Periodic physical measurements (6 parameters) |
+| `injury_records` | player, fl, ai | Injury history with severity and rehabilitation |
+| `wellness_logs` | player, fl, ai | Daily nutrition macros, hydration, sleep, stress, mood |
+| `fl_global_models` | fl | Global model weights per FL round |
+| `fl_club_models` | fl | Per-club local model weights (latest) |
+| `feedback` | feedback | Star-rating feedback submissions |
 
 User identity is owned by Keycloak — no users table in the application database.
 
-### Frontend Pages
+### Frontend
 
 | Route | Access | Description |
 |---|---|---|
-| `/login` | public | Neutral login form; defaults sport to football |
-| `/register` | public | Registration: role (coach/player) + sport selection |
-| `/select-sport` | authenticated | Fallback sport picker for users on a new device |
-| `/home` | authenticated | Role-aware dashboard (different cards per role) |
-| `/profile` | authenticated | Account details and assigned roles |
-| `/feedback` | authenticated | Star-rating feedback form (4 aspects) |
+| `/login` | public | Login form |
+| `/register` | public | Registration: role (coach / player) + sport selection |
+| `/select-sport` | authenticated | Fallback sport picker (new device) |
+| `/home` | authenticated | Role-aware dashboard with FL status panel |
+| `/profile` | authenticated | Account details and roles |
+| `/feedback` | authenticated | Star-rating feedback form |
 | `/support` | authenticated | Support page |
 | `/admin/users` | admin | Create users with any role |
-| `/players` | coach / admin | List all players with profile summaries |
+| `/players` | coach / admin | List all players in the club |
 | `/players/:id/biometrics` | coach / own player | Biometric profile view and edit |
-| `/players/:id/training` | coach / own player | Training hours + matches charts and log |
+| `/players/:id/training` | coach / own player | Training hours and matches charts |
 | `/players/:id/physical` | coach / own player | Physical parameters multi-line chart |
 | `/players/:id/injuries` | coach / own player | Injury history cards |
 | `/players/:id/wellness` | coach / own player | Nutrition, sleep and stress charts |
+| `/players/:id/recommendations` | coach / own player | AI-generated personalised recommendations |
 
-**UI highlights**
+**UI highlights:**
 - Per-sport colour theme: emerald green (Football) · orange-red (Marathon)
-- Glassmorphism form cards on dark gradient backgrounds with floating dot particles
+- Glassmorphism form cards on dark gradient backgrounds
 - Recharts time-series visualisations (line, bar, stacked bar) on all metric pages
-- Date range picker in player layout — persisted as URL search params (shareable links)
-- Role-based home dashboard: admin → User Management · coach → Players · player → My Stats
+- Date range picker in player layout — persisted as URL search params
+- Role-based home dashboard: admin → User Management · coach → Players + FL Panel · player → My Stats
 
 ### Tests
 
-**Backend (pytest)** — 36 tests across 4 files:
-- `test_auth_me.py` — `/me` endpoint: auth required, role claims, sub field
-- `test_feedback.py` — submit / list feedback, model serialisation
-- `test_keycloak_helpers.py` — `_create_user_in_keycloak` helper, role constants
-- `test_register.py` — public register (coach/player only), admin create-user
-
 **Frontend (vitest + Testing Library)** — 42 tests across 8 files:
-- `AuthContext.test.jsx` — token storage, login (username + sub parsing), logout, expired token
-- `Login.test.jsx` — form rendering, always navigates to `/home`, sport default/preserve
-- `Register.test.jsx` — field validation, password mismatch, role/sport dropdowns, localStorage
+
+- `AuthContext.test.jsx` — token storage, login, logout, expired token
+- `Login.test.jsx` — form rendering, sport default/preserve, navigation
+- `Register.test.jsx` — field validation, password mismatch, role/sport dropdowns
 - `UserManagement.test.jsx` — admin create-user form, role dropdown
 - `Profile.test.jsx` — role badges, initials, Keycloak role filtering
 - `Feedback.test.jsx` — star rating aspects, form submission
-- `Home.test.jsx` — role-aware cards: admin→User Management, coach→Players, player→My Stats
-- `SportSelect.test.jsx` — sport card click, localStorage, navigates to `/home`
+- `Home.test.jsx` — role-aware cards: admin → User Management, coach → Players, player → My Stats
+- `SportSelect.test.jsx` — sport card click, localStorage, navigation
 
----
-
-## Sprint 3 — Federated Learning, AI Recommendations & Live Data *(planned)*
-
-- **Federated Learning** — global model trained across clubs using FedAvg; each club contributes local model weights without sharing raw player data; global baseline dataset used for model initialisation
-- **AI Recommendations** — per-player personalised recommendations generated via OpenAI API based on current metrics, injury history and wellness trends
-- **Coach Alerts** — automatic alerts triggered when player metrics cross configurable risk thresholds (e.g. sleep quality drop, high stress, injury recurrence risk)
-- **Live wearable data ingestion** — real-time data collection from Samsung Gear S3 (heart rate, steps, sleep stages, stress index) via Tizen Web API or companion app
-- **Predictive models** — dedicated ML models for sleep quality prediction, stress level classification and injury risk scoring based on accumulated player data
-
----
-
-## Sprint 4 — Federated Learning *(planned)*
-
-Privacy-by-design: model weights are shared, raw data never leaves the club.
-
-- Each club trains a local neural network on its own player data
-- Only model weights are sent to the central server
-- Server aggregates using **FedAvg**: `θ_global = Σ (nₖ / n_total) × θₖ`
-- Powered by the **Flower** framework
-- GDPR compliant by design
-
----
-
-## Sprint 5 — Analytics Dashboard *(planned)*
-
-- Team-level injury risk overview
-- FL model accuracy history across aggregation rounds
-- Participating clubs and contribution sizes
-- Risk distribution charts by position and age group
+Run with: `./run.sh test`

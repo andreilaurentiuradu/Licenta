@@ -37,7 +37,7 @@ Usage: ./run.sh <command> [args]
     db                   Open a psql shell in the running Postgres container
 
   TESTING
-    test [scope]         Run unit tests  (backend | frontend | all)
+    test                 Run frontend unit tests (vitest)
 
   FEDERATED LEARNING
     fl [clubs] [rounds]  Simulate FedAvg injury-prediction training
@@ -55,7 +55,7 @@ Examples:
   ./run.sh fl 6 20
   ./run.sh notebook
   ./run.sh logs backend
-  ./run.sh test all
+  ./run.sh test
   ./run.sh db
 EOF
   exit 1
@@ -65,23 +65,24 @@ EOF
 # ── Infrastructure ─────────────────────────────────────────────────────────
 
 build_images() {
-  # Copy football dataset into backend so it's included in the Docker image
+  # Copy dataset into fl-service build context
   if [ -f "$ROOT/datasets/football_data.csv" ]; then
-    echo "[build] Copying football_data.csv → backend/models/data.csv"
-    cp "$ROOT/datasets/football_data.csv" "$ROOT/backend/models/data.csv"
+    echo "[build] Copying football_data.csv → services/fl-service/models/data.csv"
+    mkdir -p "$ROOT/services/fl-service/models"
+    cp "$ROOT/datasets/football_data.csv" "$ROOT/services/fl-service/models/data.csv"
   else
     echo "[build] WARNING: datasets/football_data.csv not found — FL bootstrap will be skipped."
   fi
 
-  echo "[build] Building backend image..."
-  docker build -t sportanalytics-backend:latest "$ROOT/backend"
-
-  echo "[build] Building frontend image..."
+  docker build -t sportanalytics-gateway:latest  "$ROOT/gateway"
+  docker build -t sportanalytics-auth:latest     "$ROOT/services/auth-service"
+  docker build -t sportanalytics-player:latest   "$ROOT/services/player-service"
+  docker build -t sportanalytics-fl:latest       "$ROOT/services/fl-service"
+  docker build -t sportanalytics-ai:latest       "$ROOT/services/ai-service"
+  docker build -t sportanalytics-feedback:latest "$ROOT/services/feedback-service"
   docker build -t sportanalytics-frontend:latest "$ROOT/frontend"
 
-  echo "[build] Pruning dangling images..."
   docker image prune -f
-
   echo "[build] Done."
 }
 
@@ -102,10 +103,17 @@ stack_deploy() {
   cat <<'EOF'
 
   Services:
-    Postgres   → localhost:5432
-    Keycloak   → http://localhost:8180   (admin / admin123)
-    Backend    → http://localhost:5000
-    Frontend   → http://localhost:3000
+    Postgres         → localhost:5432 (internal only)
+    Keycloak         → http://localhost:8180   (admin / admin123)
+    Gateway (API)    → http://localhost:5000
+    Frontend         → http://localhost:5000   (served via gateway)
+
+  Microservices (internal, via gateway on port 5000):
+    auth-service     → /api/auth/
+    player-service   → /api/players/
+    fl-service       → /api/fl/
+    ai-service       → /api/players/<id>/recommendations
+    feedback-service → /api/feedback/
 
   Demo accounts (run ./run.sh seed first):
     admin1   / admin123    role: admin
@@ -137,18 +145,6 @@ stack_stop() {
 
 
 # ── Testing ────────────────────────────────────────────────────────────────
-
-run_backend_tests() {
-  echo "[test] Running backend tests (pytest)..."
-  WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
-  MSYS_NO_PATHCONV=1 docker run --rm \
-    -v "${WIN_ROOT}/backend:/app" \
-    -w /app \
-    -e DATABASE_URL="sqlite:///:memory:" \
-    -e KEYCLOAK_URL="http://keycloak:8080" \
-    python:3.11-slim \
-    bash -c "pip install --no-cache-dir -q -r requirements.txt && pytest -v tests/"
-}
 
 run_frontend_tests() {
   echo "[test] Running frontend tests (vitest)..."
@@ -192,16 +188,22 @@ open_db_shell() {
 run_fl_simulate() {
   N_CLUBS="${1:-4}"
   FL_ROUNDS="${2:-10}"
-  DATA_FILE="$ROOT/backend/models/data.csv"
+  DATA_FILE="$ROOT/services/fl-service/models/data.csv"
+
+  # Also accept legacy path
+  if [ ! -f "$DATA_FILE" ] && [ -f "$ROOT/datasets/football_data.csv" ]; then
+    mkdir -p "$ROOT/services/fl-service/models"
+    cp "$ROOT/datasets/football_data.csv" "$DATA_FILE"
+  fi
 
   if [ ! -f "$DATA_FILE" ]; then
     cat <<EOF
 [fl] ERROR: Kaggle dataset not found.
 
-  Expected path : backend/models/data.csv
+  Expected path : datasets/football_data.csv
   Download from : https://www.kaggle.com/datasets/
 
-Place data.csv in backend/models/ and re-run: ./run.sh fl ${N_CLUBS} ${FL_ROUNDS}
+Place football_data.csv in datasets/ and re-run: ./run.sh fl ${N_CLUBS} ${FL_ROUNDS}
 EOF
     exit 1
   fi
@@ -213,7 +215,7 @@ EOF
 
   WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
   MSYS_NO_PATHCONV=1 docker run --rm \
-    -v "${WIN_ROOT}/backend:/app" \
+    -v "${WIN_ROOT}/services/fl-service:/app" \
     -w /app \
     python:3.11-slim \
     bash -c "pip install --no-cache-dir -q ${FL_DEPS} && \
@@ -228,7 +230,7 @@ run_notebook() {
 
   WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
   MSYS_NO_PATHCONV=1 docker run --rm \
-    -v "${WIN_ROOT}/backend/models:/notebooks" \
+    -v "${WIN_ROOT}/services/fl-service/models:/notebooks" \
     -w /notebooks \
     -p 8888:8888 \
     python:3.11-slim \
@@ -272,13 +274,7 @@ case "$CMD" in
     open_db_shell
     ;;
   test)
-    SCOPE="${2:-all}"
-    case "$SCOPE" in
-      backend)  run_backend_tests ;;
-      frontend) run_frontend_tests ;;
-      all)      run_backend_tests && run_frontend_tests ;;
-      *)        echo "Unknown test scope: '$SCOPE'  (use: backend | frontend | all)"; exit 1 ;;
-    esac
+    run_frontend_tests
     ;;
   fl)
     run_fl_simulate "${2:-4}" "${3:-10}"

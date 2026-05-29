@@ -5,7 +5,7 @@ version: '3.8'
 # Deploy:  ./run.sh start
 # Stop:    ./run.sh stop
 # Status:  ./run.sh status
-# Logs:    ./run.sh logs [postgres|keycloak|backend|frontend]
+# Logs:    ./run.sh logs [postgres|keycloak|gateway|auth-service|player-service|fl-service|ai-service|feedback-service|frontend]
 # ─────────────────────────────────────────────────────────────────
 
 configs:
@@ -20,66 +20,104 @@ services:
       POSTGRES_DB:       sportanalytics
       POSTGRES_USER:     sa_user
       POSTGRES_PASSWORD: sa_pass
-    ports:
-      - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
-    healthcheck:
-      disable: true
     deploy:
       replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 5s
+      restart_policy: {condition: on-failure, delay: 5s}
+    healthcheck:
+      disable: true
 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.3
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin123
-    command:
-      - start-dev
-      - --import-realm
+    command: [start-dev, --import-realm]
     configs:
       - source: realm_config
         target: /opt/keycloak/data/import/realm-export.json
     ports:
       - "8180:8080"
+    deploy:
+      replicas: 1
+      restart_policy: {condition: on-failure, delay: 10s}
     healthcheck:
       disable: true
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 10s
 
-  backend:
-    image: sportanalytics-backend:latest
+  gateway:
+    image: sportanalytics-gateway:latest
     ports:
-      - "5000:5000"
-    environment:
-      FLASK_ENV: development
-      KEYCLOAK_URL: http://keycloak:8080
-      DATABASE_URL: postgresql://sa_user:sa_pass@postgres:5432/sportanalytics
-      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      - "5000:80"
     deploy:
       replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 5s
+      restart_policy: {condition: on-failure, delay: 5s}
+
+  auth-service:
+    image: sportanalytics-auth:latest
+    environment:
+      KEYCLOAK_URL:        http://keycloak:8080
+      KEYCLOAK_REALM:      sport-analytics
+      KEYCLOAK_ADMIN_USER: admin
+      KEYCLOAK_ADMIN_PASS: admin123
+    deploy:
+      replicas: 1
+      restart_policy: {condition: on-failure, delay: 5s}
+
+  player-service:
+    image: sportanalytics-player:latest
+    environment:
+      DATABASE_URL:        postgresql://sa_user:sa_pass@postgres:5432/sportanalytics
+      KEYCLOAK_URL:        http://keycloak:8080
+      KEYCLOAK_REALM:      sport-analytics
+      KEYCLOAK_ADMIN_USER: admin
+      KEYCLOAK_ADMIN_PASS: admin123
+      FL_SERVICE_URL:      http://fl-service:5003
+    deploy:
+      replicas: 1
+      restart_policy: {condition: on-failure, delay: 5s}
+
+  fl-service:
+    image: sportanalytics-fl:latest
+    environment:
+      DATABASE_URL:        postgresql://sa_user:sa_pass@postgres:5432/sportanalytics
+      KEYCLOAK_URL:        http://keycloak:8080
+      KEYCLOAK_REALM:      sport-analytics
+      KEYCLOAK_ADMIN_USER: admin
+      KEYCLOAK_ADMIN_PASS: admin123
+    deploy:
+      replicas: 1
+      restart_policy: {condition: on-failure, delay: 5s}
+
+  ai-service:
+    image: sportanalytics-ai:latest
+    environment:
+      DATABASE_URL:        postgresql://sa_user:sa_pass@postgres:5432/sportanalytics
+      KEYCLOAK_URL:        http://keycloak:8080
+      KEYCLOAK_REALM:      sport-analytics
+      GROQ_API_KEY:        ${GROQ_API_KEY:-}
+    deploy:
+      replicas: 1
+      restart_policy: {condition: on-failure, delay: 5s}
+
+  feedback-service:
+    image: sportanalytics-feedback:latest
+    environment:
+      DATABASE_URL:        postgresql://sa_user:sa_pass@postgres:5432/sportanalytics
+      KEYCLOAK_URL:        http://keycloak:8080
+      KEYCLOAK_REALM:      sport-analytics
+    deploy:
+      replicas: 1
+      restart_policy: {condition: on-failure, delay: 5s}
 
   frontend:
     image: sportanalytics-frontend:latest
-    ports:
-      - "3000:3000"
     environment:
-      BACKEND_URL: http://backend:5000
-      KC_URL: http://keycloak:8080
+      BACKEND_URL: http://gateway:80
+      KC_URL:      http://keycloak:8080
     deploy:
       replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 5s
+      restart_policy: {condition: on-failure, delay: 5s}
 
 volumes:
   pg_data:

@@ -42,6 +42,13 @@ COACH_CLAIMS = {
     "club": "TestClub",
 }
 
+COACH_NO_CLUB_CLAIMS = {
+    "sub": "coach-uid-2",
+    "preferred_username": "coach_noclub",
+    "email": "coach_noclub@test.com",
+    "realm_access": {"roles": ["coach"]},
+}
+
 ADMIN_CLAIMS = {
     "sub": "admin-uid-1",
     "preferred_username": "admin1",
@@ -95,6 +102,11 @@ def mock_player2(mocker):
 @pytest.fixture
 def mock_coach(mocker):
     return mocker.patch("auth._verify_token", return_value=COACH_CLAIMS)
+
+
+@pytest.fixture
+def mock_coach_no_club(mocker):
+    return mocker.patch("auth._verify_token", return_value=COACH_NO_CLUB_CLAIMS)
 
 
 @pytest.fixture

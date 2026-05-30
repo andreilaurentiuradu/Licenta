@@ -141,7 +141,8 @@ def list_players():
             kc_club = kc_attrs["club"][0]
         club = (prof.club if prof and prof.club else kc_club)
 
-        if coach_club and club != coach_club:
+        # Coach without a club sees nobody; coach with a club sees only their club
+        if not is_admin and (not coach_club or club != coach_club):
             continue
 
         result.append({

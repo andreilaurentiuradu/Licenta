@@ -170,3 +170,42 @@ class TestInjuries:
     def test_player_cannot_access_other_injuries(self, client, mock_player):
         resp = client.get(f"/api/players/{PLAYER2_UID}/injuries", headers=auth_headers())
         assert resp.status_code == 403
+
+
+class TestListPlayers:
+
+    def test_player_cannot_list(self, client, mock_player):
+        resp = client.get("/api/players/", headers=auth_headers())
+        assert resp.status_code == 403
+
+    def test_coach_without_club_sees_nobody(self, client, mock_coach_no_club, mocker):
+        mocker.patch("routes._fetch_user_club", return_value=None)
+        mocker.patch("routes._admin_token", return_value="fake-token")
+        mocker.patch("routes.requests.get", return_value=type("R", (), {
+            "status_code": 200,
+            "json": lambda self: [
+                {"id": "uid-1", "username": "player1", "email": "p1@test.com",
+                 "attributes": {"club": ["OtherClub"]}},
+            ],
+        })())
+        resp = client.get("/api/players/", headers=auth_headers())
+        assert resp.status_code == 200
+        assert resp.get_json() == []
+
+    def test_coach_sees_only_own_club(self, client, mock_coach, mocker):
+        mocker.patch("routes._fetch_user_club", return_value="TestClub")
+        mocker.patch("routes._admin_token", return_value="fake-token")
+        mocker.patch("routes.requests.get", return_value=type("R", (), {
+            "status_code": 200,
+            "json": lambda self: [
+                {"id": "uid-1", "username": "player1", "email": "p1@test.com",
+                 "attributes": {"club": ["TestClub"]}},
+                {"id": "uid-2", "username": "player2", "email": "p2@test.com",
+                 "attributes": {"club": ["OtherClub"]}},
+            ],
+        })())
+        resp = client.get("/api/players/", headers=auth_headers())
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert len(data) == 1
+        assert data[0]["username"] == "player1"

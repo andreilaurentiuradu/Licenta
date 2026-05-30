@@ -41,8 +41,19 @@ export function AuthProvider({ children }) {
     localStorage.setItem('refresh_token', data.refresh_token)
     try {
       const meRes = await getMe()
-      setUser(meRes.data)
-      return meRes.data
+      const userData = meRes.data
+      setUser(userData)
+      // If club is missing (e.g. newly registered user, Keycloak attribute propagation delay),
+      // retry once after 2s
+      if (!userData.club) {
+        setTimeout(async () => {
+          try {
+            const retry = await getMe()
+            if (retry.data.club) setUser(retry.data)
+          } catch { /* ignore */ }
+        }, 2000)
+      }
+      return userData
     } catch {
       const parsed = parseToken(data.access_token)
       setUser(parsed)

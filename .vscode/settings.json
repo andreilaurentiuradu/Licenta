@@ -10,6 +10,17 @@
             "group": "localhost",
             "database": "lawranalyzer",
             "username": "sa_user"
+        },
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "licenta",
+            "database": "lawranalyzer",
+            "username": "sa_user",
+            "password": "sa_pass"
         }
     ]
 }

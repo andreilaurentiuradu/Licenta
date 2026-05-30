@@ -1,6 +1,9 @@
+import logging
 import requests
 from flask import Blueprint, request, jsonify, current_app, g
 from auth import require_auth
+
+log = logging.getLogger(__name__)
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -70,16 +73,25 @@ def _create_user_in_keycloak(username: str, email: str, password: str, role: str
         return {"error": "User created but could not be retrieved"}, 500
     user_id = users[0]["id"]
 
-    # 3. Force-clear requiredActions and guarantee club attribute is set
-    full_user = requests.get(f"{base}/users/{user_id}", headers=headers, timeout=10).json()
-    full_user["requiredActions"] = []
-    full_user["emailVerified"]   = True
-    full_user["enabled"]         = True
-    if club:
-        attrs = full_user.get("attributes") or {}
-        attrs["club"] = [club]
-        full_user["attributes"] = attrs
-    requests.put(f"{base}/users/{user_id}", json=full_user, headers=headers, timeout=10)
+    # 3. Clear requiredActions; re-apply club attribute on top of whatever Keycloak stored
+    full_user = requests.get(f"{base}/users/{user_id}", headers=headers, timeout=10)
+    if full_user.status_code == 200:
+        user_data = full_user.json()
+        user_data["requiredActions"] = []
+        user_data["emailVerified"]   = True
+        user_data["enabled"]         = True
+        if club:
+            attrs = user_data.get("attributes") or {}
+            attrs["club"] = [club]
+            user_data["attributes"] = attrs
+        put_resp = requests.put(f"{base}/users/{user_id}", json=user_data, headers=headers, timeout=10)
+        if put_resp.status_code not in (200, 204) and club:
+            # PUT failed — set attributes separately via a minimal payload
+            requests.put(
+                f"{base}/users/{user_id}",
+                json={"attributes": {"club": [club]}},
+                headers=headers, timeout=10,
+            )
 
     # 4. Assign role
     role_resp = requests.get(f"{base}/roles/{role}", headers=headers, timeout=10)
@@ -96,7 +108,7 @@ def _create_user_in_keycloak(username: str, email: str, password: str, role: str
 
 
 def _fetch_user_club(user_id: str):
-    """Fetch the 'club' attribute directly from Keycloak."""
+    """Fetch the 'club' attribute directly from Keycloak admin API."""
     try:
         token   = _admin_token()
         headers = {"Authorization": f"Bearer {token}"}
@@ -106,8 +118,9 @@ def _fetch_user_club(user_id: str):
             attrs = resp.json().get("attributes") or {}
             vals  = attrs.get("club") or []
             return vals[0] if vals else None
-    except Exception:
-        pass
+        log.warning("[auth] _fetch_user_club: KC returned %d for user %s", resp.status_code, user_id)
+    except Exception as exc:
+        log.warning("[auth] _fetch_user_club failed for %s: %s", user_id, exc)
     return None
 
 

@@ -9,39 +9,55 @@ const THEMES = {
 const FAQS = [
   {
     q: 'What is LawrAnalyzer?',
-    a: 'LawrAnalyzer is a platform for sports clubs that centralises player metrics — biometrics, training load, physical assessments, injury history, nutrition, sleep and stress — and uses AI to support coaches in preventing injuries and optimising performance.',
+    a: 'LawrAnalyzer is a platform for sports clubs that centralises player metrics — biometrics, training load, physical assessments, injury history, nutrition, sleep and stress — and uses Federated Learning and AI to help coaches prevent injuries and optimise performance.',
   },
   {
     q: 'What roles are available?',
     a: [
-      'Player — views and logs only their own metrics and recommendations.',
+      'Player — views and logs only their own metrics and AI recommendations.',
       'Coach — views and manages all players in their club, triggers Federated Learning training rounds.',
       'Admin — full platform access including user creation across all clubs.',
     ],
   },
   {
     q: 'How do I record player data?',
-    a: 'Log in as a player or coach, navigate to a player profile and select the relevant tab: Training, Physical, Injuries or Wellness. Use the "+ Add entry" button and fill in the form. All data is filterable by date range.',
+    a: 'Navigate to a player profile and select the relevant tab: Training, Physical, Injuries or Wellness. Use the "+ Add entry" button and fill in the form. All data is filterable by date range.',
   },
   {
-    q: 'Can a player see a coach\'s data or another player\'s data?',
-    a: 'No. A player can only access their own metrics. Coaches and admins can view all players. Access is enforced at the API level on every request.',
+    q: 'Can a player see another player\'s data?',
+    a: 'No. A player can only access their own metrics. Coaches and admins can view all players in their club. Access is enforced at the API level on every request.',
   },
   {
-    q: 'What does Federated Learning mean for my data?',
-    a: 'Coming in Sprint 3: raw player data never leaves your infrastructure. Only model weights are shared with the central server for aggregation (FedAvg). Your data is never visible to other clubs.',
+    q: 'What is Federated Learning and how does it protect my data?',
+    a: 'Raw player data never leaves your club\'s infrastructure. Only model weights (not raw data) are shared with the central server for aggregation using FedAvg. Each club\'s data is never visible to other clubs.',
   },
   {
-    q: 'Will there be AI-powered recommendations?',
-    a: 'Yes — Sprint 3 will include personalised recommendations generated via OpenAI based on each player\'s current metrics, injury history and wellness trends.',
+    q: 'How does injury risk prediction work?',
+    a: 'The FL model uses 12 features extracted from your DB — position, injury history, physical assessments, sleep, stress, nutrition and warmup adherence — to compute a risk score (low / medium / high) for each player. The global model is bootstrapped from a football dataset and continuously fine-tuned as new data is logged.',
   },
   {
-    q: 'Can I connect a smartwatch?',
-    a: 'Samsung Gear S3 integration is planned for Sprint 3. Heart rate, sleep stages and stress index will be ingested in real time via the Tizen companion API, eliminating manual data entry.',
+    q: 'How do AI recommendations work?',
+    a: 'The platform collects the last 30 days of wellness, training and physical data for a player and sends it to an LLM (Groq — llama-3.1-8b-instant). The model returns 3–4 personalised, prioritised recommendations across categories: Injury Prevention, Training Load, Wellness, Nutrition and Recovery.',
   },
   {
-    q: 'How will coach alerts work?',
-    a: 'Sprint 3 will introduce threshold-based alerts: coaches receive a notification when a player\'s metrics indicate elevated risk — for example a sustained drop in sleep quality, high stress over multiple days, or a pattern linked to previous injuries.',
+    q: 'What metrics does the Wellness tab track?',
+    a: [
+      'Calories, protein, carbohydrates, fat (macros)',
+      'Hydration (ml)',
+      'Sleep hours and sleep quality (1–10)',
+      'Stress level and mood score (1–10)',
+    ],
+  },
+  {
+    q: 'What does the Physical tab measure?',
+    a: [
+      'Knee strength score',
+      'Hamstring flexibility',
+      'Reaction time (ms)',
+      'Balance test score',
+      'Sprint speed over 10m (m/s)',
+      'Agility score',
+    ],
   },
 ]
 

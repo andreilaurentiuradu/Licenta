@@ -23,8 +23,12 @@ const BASE_CARDS = [
   { to: '/feedback', icon: '💬', title: 'Feedback', desc: 'Rate the platform and share thoughts' },
 ]
 
-const ADMIN_CARD = {
-  to: '/admin/users', icon: '🛡️', title: 'User Management', desc: 'Create coaches, players and admins',
+const ADMIN_USERS_CARD = {
+  to: '/admin/users', icon: '👥', title: 'All Users', desc: 'View and delete platform accounts',
+}
+
+const ADMIN_CREATE_CARD = {
+  to: '/admin/create-user', icon: '🛡️', title: 'Create User', desc: 'Add coaches, players and admins',
 }
 
 const COACH_PLAYERS_CARD = {
@@ -240,7 +244,7 @@ export default function Home() {
   const club             = user?.club
   const roleBadge        = ROLE_BADGE[role]
   const navCards         = isAdmin
-    ? [...BASE_CARDS, ADMIN_CARD]
+    ? [...BASE_CARDS, ADMIN_USERS_CARD, ADMIN_CREATE_CARD]
     : isCoach
     ? [...BASE_CARDS, COACH_PLAYERS_CARD]
     : isPlayer

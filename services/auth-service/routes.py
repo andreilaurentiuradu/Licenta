@@ -171,6 +171,63 @@ def admin_create_user():
         return jsonify({"error": "Unexpected error", "detail": str(exc)}), 500
 
 
+@auth_bp.get("/users")
+@require_auth(roles=["admin"])
+def list_users():
+    """Admin — list all realm users with their roles and club attribute."""
+    try:
+        token   = _admin_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        base    = f"{_keycloak_url()}/admin/realms/{_realm()}"
+
+        resp = requests.get(f"{base}/users?max=500&briefRepresentation=false",
+                            headers=headers, timeout=10)
+        if resp.status_code != 200:
+            return jsonify({"error": "Failed to fetch users"}), 502
+
+        kc_users = resp.json()
+        result = []
+        for u in kc_users:
+            uid = u["id"]
+            roles_resp = requests.get(
+                f"{base}/users/{uid}/role-mappings/realm",
+                headers=headers, timeout=5,
+            )
+            realm_roles = [r["name"] for r in roles_resp.json()] if roles_resp.status_code == 200 else []
+            app_roles   = [r for r in realm_roles if r in ALL_ROLES]
+            attrs       = u.get("attributes") or {}
+            club_vals   = attrs.get("club") or []
+            result.append({
+                "id":       uid,
+                "username": u.get("username"),
+                "email":    u.get("email"),
+                "enabled":  u.get("enabled", True),
+                "roles":    app_roles,
+                "club":     club_vals[0] if club_vals else None,
+            })
+
+        result.sort(key=lambda x: (x["roles"][0] if x["roles"] else "z", x["username"] or ""))
+        return jsonify(result)
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 503
+
+
+@auth_bp.delete("/users/<user_id>")
+@require_auth(roles=["admin"])
+def delete_user(user_id):
+    """Admin — delete a Keycloak user by ID."""
+    try:
+        token   = _admin_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        base    = f"{_keycloak_url()}/admin/realms/{_realm()}"
+        resp    = requests.delete(f"{base}/users/{user_id}", headers=headers, timeout=10)
+        if resp.status_code == 204:
+            return jsonify({"deleted": user_id})
+        return jsonify({"error": f"Keycloak returned {resp.status_code}"}), 502
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 503
+
+
 @auth_bp.get("/me")
 @require_auth()
 def me():

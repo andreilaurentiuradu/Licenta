@@ -25,6 +25,12 @@ export const adminCreateUser = (data) => api.post('/auth/admin/create-user', dat
 /** Get current user info from Flask (validates token server-side). */
 export const getMe = () => api.get('/auth/me')
 
+/** Admin — list all users. */
+export const listUsers   = ()       => api.get('/auth/users')
+
+/** Admin — delete a user by Keycloak ID. */
+export const deleteUser  = (id)     => api.delete(`/auth/users/${id}`)
+
 /** Submit feedback (ratings + optional message). */
 export const submitFeedback = (ratings, message) =>
   api.post('/feedback/', { ratings, message })

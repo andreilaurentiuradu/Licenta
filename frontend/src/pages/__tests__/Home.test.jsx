@@ -81,7 +81,7 @@ describe('Home page', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/players/player-uuid-123/biometrics')
   })
 
-  it('shows admin badge and User Management card for admin', () => {
+  it('shows admin badge with All Users and Create User cards', () => {
     mockUseAuth.mockReturnValue({
       user:   { username: 'admin_user', roles: ['admin'] },
       logout: vi.fn(),
@@ -89,7 +89,8 @@ describe('Home page', () => {
     renderWithRouter(<Home />)
 
     expect(screen.getByText('Admin')).toBeInTheDocument()
-    expect(screen.getByText(/User Management/)).toBeInTheDocument()
+    expect(screen.getByText(/All Users/)).toBeInTheDocument()
+    expect(screen.getByText(/Create User/)).toBeInTheDocument()
     expect(screen.queryByText(/^Players$/)).not.toBeInTheDocument()
     expect(screen.queryByText(/My Stats/)).not.toBeInTheDocument()
     expect(screen.queryByText('Federated Learning')).not.toBeInTheDocument()
@@ -103,7 +104,7 @@ describe('Home page', () => {
     renderWithRouter(<Home />)
 
     expect(screen.getByText('Admin')).toBeInTheDocument()
-    expect(screen.getByText(/User Management/)).toBeInTheDocument()
+    expect(screen.getByText(/All Users/)).toBeInTheDocument()
   })
 
   it('shows no club assigned when coach has no club', () => {

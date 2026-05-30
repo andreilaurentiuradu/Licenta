@@ -84,8 +84,8 @@ export default function UserManagement() {
               ← Back
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-white">User Management</h1>
-              <p className="text-xs text-white/40 mt-0.5">Admin — create users of any role</p>
+              <h1 className="text-2xl font-bold text-white">Create User</h1>
+              <p className="text-xs text-white/40 mt-0.5">Admin — create accounts of any role</p>
             </div>
           </div>
 

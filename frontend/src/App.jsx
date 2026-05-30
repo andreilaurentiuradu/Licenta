@@ -7,6 +7,7 @@ import Home             from './pages/Home'
 import Support          from './pages/Support'
 import Feedback         from './pages/Feedback'
 import Profile          from './pages/Profile'
+import AdminUsers       from './pages/AdminUsers'
 import UserManagement   from './pages/UserManagement'
 import PlayersList      from './pages/PlayersList'
 import PlayerLayout     from './pages/PlayerLayout'
@@ -60,6 +61,10 @@ export default function App() {
         />
         <Route
           path="/admin/users"
+          element={<AdminRoute><AdminUsers /></AdminRoute>}
+        />
+        <Route
+          path="/admin/create-user"
           element={<AdminRoute><UserManagement /></AdminRoute>}
         />
 

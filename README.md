@@ -35,7 +35,7 @@ A SaaS platform that helps sports clubs anticipate player injuries, support tact
                              │ HTTP  /api/*
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Backend Flask  (port 5000)  ·  un singur proces                │
+│  Backend Flask  (port 5000)  ·  single process                  │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │  app/api/                                                │   │
@@ -338,6 +338,122 @@ The 4 clubs have distinct risk profiles — designed to make FedAvg aggregation 
 
 ---
 
+## User Guide — Demo Flow
+
+> **Prerequisites:** stack running (`./run.sh start`), demo data seeded (`./run.sh seed`).
+> Open **http://localhost:5000** in the browser.
+
+---
+
+### Admin — `admin1 / admin123`
+
+**Goal:** manage the platform and create accounts for new clubs.
+
+1. **Login** → `admin1` / `admin123` → select sport → Home
+2. Home shows the **Admin** badge and the **User Management** card
+3. Click **User Management** → create a new coach:
+   - Role: `coach`, Club: `FC Test`, fill in username/email/password → Submit
+4. Create a new player for that coach's club:
+   - Role: `player`, Club: `FC Test`
+5. Go to **Profile** → verify roles assigned (admin badge visible)
+6. Go to **Support** → FAQ section with platform documentation
+
+> Admins see all navigation cards and bypass club-based filtering.
+
+---
+
+### Coach — `coach2 / coach123` (FC Rivals — high risk club)
+
+**Goal:** monitor player risk, trigger FL training, access individual profiles.
+
+1. **Login** → `coach2` / `coach123` → Home
+2. Home shows:
+   - **Injury Risk Ranking** panel — 3 players sorted by FL risk score
+   - Red alert banner: players with high risk flagged immediately
+   - **Federated Learning** panel with current model stats (round, accuracy, clubs)
+3. In the **FL panel** → click **"Start round →"**
+   - FL fine-tunes the FC Rivals local model on the seeded data
+   - FedAvg aggregates across all clubs → global model updated
+   - Round counter increments, accuracy updates
+4. Risk Ranking refreshes — probabilities reflect the updated model
+5. Click on a **high-risk player** (e.g. player4 or player5) → navigates to their profile
+6. Browse tabs:
+   - **Biometrics** — position, height, weight, birth year
+   - **Training** — training hours and matches chart (last 90 days)
+   - **Physical** — knee strength, hamstring, reaction time multi-line chart
+   - **Injuries** — injury cards with severity and rehab details
+   - **Wellness** — sleep, stress, mood and nutrition charts
+   - **Recommendations** — AI-generated (Groq) with FL risk score at top
+7. Click **Players** card → full player list for FC Rivals only (other clubs not visible)
+8. Repeat step 3 logged in as `coach1`, `coach3`, `coach4` to add all 4 clubs to the global model
+
+> Each "Start round →" from a different coach club adds a new FedAvg round. After 4 coaches train, `clubs_count = 4` in the FL panel.
+
+---
+
+### Player — `player4 / player123` (FC Rivals — high risk)
+
+**Goal:** view personal metrics and AI recommendations.
+
+1. **Login** → `player4` / `player123` → Home
+2. Home shows the **Player** badge and **My Stats** card
+3. Click **My Stats** → Player profile opens at Biometrics tab
+4. Browse all tabs:
+   - **Training** → chart with training load over 90 days
+   - **Physical** → multi-line chart (knee strength, agility, sprint speed)
+   - **Injuries** → injury history cards (2–3 injuries for FC Rivals profile)
+   - **Wellness** → sleep hours, stress and mood trends
+   - **Recommendations** → FL risk score (High · ~90%+) + 3–4 AI recommendations
+     - Injury Prevention (high priority)
+     - Training Load adjustment
+     - Wellness / Recovery advice
+5. Add a new wellness entry (click **"+ Add entry"** in Wellness tab):
+   - Fill in sleep hours, stress level, mood, calories, hydration → Save
+   - FL trigger fires automatically in the background (player-service → fl-service)
+6. Go back to **Home** → Recommendations update after FL model re-trains
+
+> A player can only see their own data — navigating to another player's URL returns 403 Forbidden.
+
+---
+
+### FL Pipeline — end-to-end demo sequence
+
+The following sequence demonstrates the full Federated Learning flow:
+
+```
+1. ./run.sh seed                        → 4 clubs × 3 players with varied risk profiles
+
+2. Login as coach1 (FC Demo)
+   → Home → "Start round →"
+   → FL round 1: FC Demo local model trained
+   → FedAvg with available clubs → fl_global_models round = 1
+
+3. Login as coach2 (FC Rivals)
+   → Home → "Start round →"
+   → FL round 2: FC Rivals model trained (high-stress, high-injury data)
+   → FedAvg → global model now sees 2 distinct risk profiles
+
+4. Login as coach3 + coach4 → repeat
+   → After 4 rounds: clubs_count = 4, global model aggregated across all risk profiles
+
+5. Login as player4 (FC Rivals)
+   → Recommendations tab → Injury risk: HIGH (~95%)
+   → LLM recommendations calibrated to high-risk context
+
+6. Login as player1 (FC Demo)
+   → Recommendations tab → Injury risk: LOW (~4%)
+   → LLM recommendations reflect low-risk, maintenance focus
+
+7. Add wellness data for player1 (poor sleep + high stress)
+   → FL trigger fires automatically
+   → Risk score updates on next page load
+```
+
+> Raw player data (wellness, training, physical metrics) never leaves the service.
+> Only model weights (LogisticRegression coefficients + intercept) are exchanged between clubs and the central FL server.
+
+---
+
 ## What is Implemented
 
 ### Authentication & RBAC
@@ -413,6 +529,8 @@ Privacy-by-design: raw player data never leaves the service. Only model weights 
 |---|---|---|---|
 | `POST` | `/api/fl/train` | coach / admin | Manually trigger FL round for the coach's club |
 | `GET` | `/api/fl/status` | coach / admin | Current global model: round, accuracy, clubs, samples |
+| `GET` | `/api/fl/risk` | coach / admin | Injury risk ranking for all players in the coach's club |
+| `GET` | `/internal/risk/<id>` | internal only | FL risk score for a single player (used by ai-recommendation-service) |
 | `POST` | `/internal/trigger` | internal only | Called by player-service after data mutations |
 
 ### AI Recommendations (ai-recommendation-service)
@@ -421,7 +539,13 @@ Privacy-by-design: raw player data never leaves the service. Only model weights 
 |---|---|---|---|
 | `GET` | `/api/players/<id>/recommendations` | coach / own player | Generate personalised recommendations |
 
-Collects last 30 days of wellness + training + latest physical assessment and sends to **Groq API** (`llama-3.1-8b-instant`) via OpenAI-compatible client. Returns 3–4 prioritised recommendations across categories: Injury Prevention, Training Load, Wellness, Nutrition, Recovery. Falls back to static defaults if `GROQ_API_KEY` is not set.
+Flow:
+1. Fetches the player's FL injury risk score from `fl-service /internal/risk/<id>` — this is the authoritative risk source
+2. Collects last 30 days of wellness + training + latest physical assessment
+3. Sends both to **Groq API** (`llama-3.1-8b-instant`) via OpenAI-compatible client
+4. Returns 3–4 prioritised recommendations (Injury Prevention, Training Load, Wellness, Nutrition, Recovery) with the FL risk score — not an LLM guess
+
+Falls back to static defaults if `GROQ_API_KEY` is not set. The FL risk score is always returned regardless.
 
 To enable: add `GROQ_API_KEY=<your_key>` to `.env` at the project root (automatically picked up by `run.sh`).
 
@@ -474,7 +598,10 @@ User identity is owned by Keycloak — no users table in the application databas
 - Glassmorphism form cards on dark gradient backgrounds
 - Recharts time-series visualisations (line, bar, stacked bar) on all metric pages
 - Date range picker in player layout — persisted as URL search params
-- Role-based home dashboard: admin → User Management · coach → Players + FL Panel · player → My Stats
+- Role-based home dashboard:
+  - **Admin** → User Management card
+  - **Coach** → Players card + FL Panel (train button, round/accuracy/clubs stats) + Injury Risk Ranking (sorted by FL probability, red alert for high-risk players)
+  - **Player** → My Stats card
 
 ### Tests
 
@@ -502,12 +629,12 @@ Each microservice has its own pytest suite. The frontend uses vitest. All tests 
 - `SportSelect.test.jsx` — sport card click, localStorage, navigation
 
 ```bash
-./run.sh test all        # toate serviciile + frontend
-./run.sh test player     # doar player-service
-./run.sh test frontend   # doar frontend
+./run.sh test all        # all services + frontend
+./run.sh test player     # player-service only
+./run.sh test frontend   # frontend only
 ```
 
 **CI/CD (GitHub Actions)** — `.github/workflows/ci.yml`:
-- 6 joburi paralele (unul per serviciu + frontend)
-- Rulează la orice push și pe orice PR spre `main`
-- Job `All tests passed` — target pentru branch protection pe `main`
+- 6 parallel jobs (one per service + frontend)
+- Runs on every push to any branch and on every PR targeting `main`
+- `All tests passed` job — used as the branch protection status check on `main`

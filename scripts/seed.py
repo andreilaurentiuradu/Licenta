@@ -2,9 +2,13 @@
 Seed script — creates demo accounts in Keycloak and populates the database
 with realistic mock data spanning the last 90 days.
 
-Clubs:
-  FC Demo    — coach1   + player1 / player2 / player3
-  FC Rivals  — coach2   + player4 / player5
+4 clubs x 3 players — designed to demonstrate the FL pipeline:
+  each club has a distinct risk profile so FedAvg aggregates meaningfully.
+
+  FC Demo    — coach1  — low injury risk   (good sleep, low stress, high warmup)
+  FC Rivals  — coach2  — high injury risk  (poor sleep, high stress, low warmup)
+  FC United  — coach3  — medium risk       (mixed profile)
+  FC Alpha   — coach4  — high injury count (overtraining pattern)
 
 Run while the stack is up:
     ./run.sh seed
@@ -28,23 +32,65 @@ DB_URL   = os.environ.get("DATABASE_URL",
            "postgresql://sa_user:sa_pass@localhost:5432/lawranalyzer")
 
 COACHES = [
-    {"username": "coach1",  "email": "coach1@demo.ro",  "password": "coach123",
-     "club": "FC Demo",    "role": "coach"},
-    {"username": "coach2",  "email": "coach2@demo.ro",  "password": "coach123",
-     "club": "FC Rivals",  "role": "coach"},
+    {"username": "coach1", "email": "coach1@demo.ro", "password": "coach123",
+     "club": "FC Demo",   "role": "coach"},
+    {"username": "coach2", "email": "coach2@demo.ro", "password": "coach123",
+     "club": "FC Rivals", "role": "coach"},
+    {"username": "coach3", "email": "coach3@demo.ro", "password": "coach123",
+     "club": "FC United", "role": "coach"},
+    {"username": "coach4", "email": "coach4@demo.ro", "password": "coach123",
+     "club": "FC Alpha",  "role": "coach"},
 ]
 
+# risk_profile controls injury probability and wellness quality:
+#   "low"    — 0-1 injuries, good sleep/stress, high warmup adherence
+#   "medium" — 1-2 injuries, average wellness
+#   "high"   — 2-3 injuries, poor sleep, high stress, low warmup
+
 PLAYERS = [
-    {"username": "player1", "email": "player1@demo.ro", "password": "player123",
-     "club": "FC Demo",    "position": "Midfielder", "height_cm": 178.0, "weight_kg": 74.5, "birth_year": 2000},
-    {"username": "player2", "email": "player2@demo.ro", "password": "player123",
-     "club": "FC Demo",    "position": "Forward",    "height_cm": 182.0, "weight_kg": 78.0, "birth_year": 1998},
-    {"username": "player3", "email": "player3@demo.ro", "password": "player123",
-     "club": "FC Demo",    "position": "Defender",   "height_cm": 185.5, "weight_kg": 83.0, "birth_year": 2001},
-    {"username": "player4", "email": "player4@demo.ro", "password": "player123",
-     "club": "FC Rivals",  "position": "Forward",    "height_cm": 179.0, "weight_kg": 76.0, "birth_year": 1999},
-    {"username": "player5", "email": "player5@demo.ro", "password": "player123",
-     "club": "FC Rivals",  "position": "Goalkeeper", "height_cm": 191.0, "weight_kg": 88.0, "birth_year": 2002},
+    # FC Demo — low injury risk
+    {"username": "player1",  "email": "player1@demo.ro",  "password": "player123",
+     "club": "FC Demo",   "position": "Midfielder", "height_cm": 178.0, "weight_kg": 74.5,
+     "birth_year": 2000,  "risk_profile": "low"},
+    {"username": "player2",  "email": "player2@demo.ro",  "password": "player123",
+     "club": "FC Demo",   "position": "Forward",    "height_cm": 182.0, "weight_kg": 78.0,
+     "birth_year": 1998,  "risk_profile": "low"},
+    {"username": "player3",  "email": "player3@demo.ro",  "password": "player123",
+     "club": "FC Demo",   "position": "Defender",   "height_cm": 185.5, "weight_kg": 83.0,
+     "birth_year": 2001,  "risk_profile": "medium"},
+
+    # FC Rivals — high injury risk
+    {"username": "player4",  "email": "player4@demo.ro",  "password": "player123",
+     "club": "FC Rivals", "position": "Forward",    "height_cm": 179.0, "weight_kg": 76.0,
+     "birth_year": 1999,  "risk_profile": "high"},
+    {"username": "player5",  "email": "player5@demo.ro",  "password": "player123",
+     "club": "FC Rivals", "position": "Goalkeeper", "height_cm": 191.0, "weight_kg": 88.0,
+     "birth_year": 2002,  "risk_profile": "high"},
+    {"username": "player6",  "email": "player6@demo.ro",  "password": "player123",
+     "club": "FC Rivals", "position": "Midfielder", "height_cm": 175.0, "weight_kg": 71.0,
+     "birth_year": 2000,  "risk_profile": "medium"},
+
+    # FC United — medium / mixed risk
+    {"username": "player7",  "email": "player7@demo.ro",  "password": "player123",
+     "club": "FC United", "position": "Defender",   "height_cm": 183.0, "weight_kg": 80.0,
+     "birth_year": 1997,  "risk_profile": "medium"},
+    {"username": "player8",  "email": "player8@demo.ro",  "password": "player123",
+     "club": "FC United", "position": "Forward",    "height_cm": 177.0, "weight_kg": 73.0,
+     "birth_year": 2001,  "risk_profile": "low"},
+    {"username": "player9",  "email": "player9@demo.ro",  "password": "player123",
+     "club": "FC United", "position": "Goalkeeper", "height_cm": 189.0, "weight_kg": 85.0,
+     "birth_year": 1999,  "risk_profile": "high"},
+
+    # FC Alpha — high injury count (overtraining)
+    {"username": "player10", "email": "player10@demo.ro", "password": "player123",
+     "club": "FC Alpha",  "position": "Midfielder", "height_cm": 176.0, "weight_kg": 72.0,
+     "birth_year": 2000,  "risk_profile": "high"},
+    {"username": "player11", "email": "player11@demo.ro", "password": "player123",
+     "club": "FC Alpha",  "position": "Forward",    "height_cm": 181.0, "weight_kg": 77.0,
+     "birth_year": 1998,  "risk_profile": "high"},
+    {"username": "player12", "email": "player12@demo.ro", "password": "player123",
+     "club": "FC Alpha",  "position": "Defender",   "height_cm": 184.0, "weight_kg": 81.0,
+     "birth_year": 2002,  "risk_profile": "medium"},
 ]
 
 random.seed(42)
@@ -202,7 +248,17 @@ def clamp(v, lo, hi):
 
 
 def seed_player(session, uid, p):
-    pos = p["position"]
+    pos     = p["position"]
+    profile = p.get("risk_profile", "medium")
+
+    # Per-profile parameters
+    PROFILES = {
+        #                sleep   stress  warmup  n_inj_range  phys_mult
+        "low":    dict(sleep=8.0, stress=3,  warmup=(0.8, 1.0), injuries=(0, 1), phys=1.05),
+        "medium": dict(sleep=7.2, stress=5,  warmup=(0.5, 0.9), injuries=(1, 2), phys=1.00),
+        "high":   dict(sleep=5.8, stress=8,  warmup=(0.1, 0.5), injuries=(2, 3), phys=0.90),
+    }
+    cfg = PROFILES[profile]
 
     prof = session.query(PlayerProfile).filter_by(user_id=uid).first()
     if not prof:
@@ -219,6 +275,8 @@ def seed_player(session, uid, p):
 
     # Training logs — every 2-4 days
     base_h = {"Midfielder": 1.8, "Forward": 2.0, "Defender": 1.6, "Goalkeeper": 1.5}[pos]
+    if profile == "high":
+        base_h *= 1.3  # overtraining pattern
     d = start
     while d <= today:
         if not session.query(TrainingLog).filter_by(user_id=uid, date=d).first():
@@ -226,47 +284,51 @@ def seed_player(session, uid, p):
                 user_id=uid, date=d,
                 training_hours=round(jitter(base_h, 0.25), 1),
                 matches_played=random.choices([0, 1], weights=[4, 1])[0],
-                warmup_adherence=round(random.uniform(0.5, 1.0), 2),
+                warmup_adherence=round(random.uniform(*cfg["warmup"]), 2),
                 notes=random.choice([None, None, "Recovery", "Match prep", "Strength"]),
             ))
         d += timedelta(days=random.randint(2, 4))
 
     # Physical assessments — every ~2 weeks
-    base_knee  = {"Midfielder": 82.0, "Forward": 79.0, "Defender": 88.0, "Goalkeeper": 90.0}[pos]
-    base_ham   = {"Midfielder": 70.0, "Forward": 72.0, "Defender": 68.0, "Goalkeeper": 65.0}[pos]
+    base_knee = {"Midfielder": 82.0, "Forward": 79.0, "Defender": 88.0, "Goalkeeper": 90.0}[pos]
+    base_ham  = {"Midfielder": 70.0, "Forward": 72.0, "Defender": 68.0, "Goalkeeper": 65.0}[pos]
     d = start
     while d <= today:
         if not session.query(PhysicalAssessment).filter_by(user_id=uid, date=d).first():
+            m = cfg["phys"]
             session.add(PhysicalAssessment(
                 user_id=uid, date=d,
-                knee_strength_score=jitter(base_knee, 0.08),
-                hamstring_flexibility=jitter(base_ham, 0.10),
-                reaction_time_ms=jitter(240.0, 0.10),
-                balance_test_score=jitter(83.0, 0.08),
-                sprint_speed_10m_s=jitter(5.9, 0.08),
-                agility_score=jitter(78.0, 0.08),
+                knee_strength_score=jitter(base_knee * m, 0.08),
+                hamstring_flexibility=jitter(base_ham * m, 0.10),
+                reaction_time_ms=jitter(240.0 / m, 0.10),
+                balance_test_score=jitter(83.0 * m, 0.08),
+                sprint_speed_10m_s=jitter(5.9 * m, 0.08),
+                agility_score=jitter(78.0 * m, 0.08),
             ))
         d += timedelta(days=random.randint(12, 16))
 
-    # Injuries — 0-2 per player
+    # Injuries — count driven by risk profile
     injury_pool = [
         ("Hamstring strain", "mild",     "RICE + physiotherapy", 2,  False),
         ("Ankle sprain",     "moderate", "Rest + physiotherapy", 4,  False),
         ("Knee ligament",    "severe",   "Surgery + physio",     12, True),
         ("Groin pull",       "mild",     "Rest + stretching",    1,  False),
         ("Calf strain",      "moderate", "Ice + physiotherapy",  3,  False),
+        ("Shin splints",     "mild",     "Rest + ice",           2,  False),
     ]
-    n_inj = random.randint(0, 2)
-    for day_off in sorted(random.sample(range(5, 85), n_inj)):
-        inj_date = start + timedelta(days=day_off)
-        if not session.query(InjuryRecord).filter_by(user_id=uid, date=inj_date).first():
-            t, sev, prog, weeks, recur = random.choice(injury_pool)
-            session.add(InjuryRecord(
-                user_id=uid, date=inj_date,
-                injury_type=t, injury_severity=sev,
-                rehabilitation_program=prog, rehabilitation_weeks=weeks,
-                recurrence=recur,
-            ))
+    lo, hi = cfg["injuries"]
+    n_inj = random.randint(lo, hi)
+    if n_inj > 0:
+        for day_off in sorted(random.sample(range(5, 85), min(n_inj, 80))):
+            inj_date = start + timedelta(days=day_off)
+            if not session.query(InjuryRecord).filter_by(user_id=uid, date=inj_date).first():
+                t, sev, prog, weeks, recur = random.choice(injury_pool)
+                session.add(InjuryRecord(
+                    user_id=uid, date=inj_date,
+                    injury_type=t, injury_severity=sev,
+                    rehabilitation_program=prog, rehabilitation_weeks=weeks,
+                    recurrence=recur,
+                ))
 
     # Wellness logs — every 1-3 days
     base_cal = {"Midfielder": 2600, "Forward": 2800, "Defender": 2900, "Goalkeeper": 2700}[pos]
@@ -280,16 +342,16 @@ def seed_player(session, uid, p):
             session.add(WellnessLog(
                 user_id=uid, date=d,
                 calories=cal, protein_g=prot, carbs_g=carbs, fat_g=fat,
-                hydration_ml=int(jitter(2400, 0.20)),
-                sleep_hours=round(jitter(7.2, 0.15), 1),
-                sleep_quality=clamp(int(jitter(7, 0.20)), 1, 10),
-                stress_level=clamp(int(jitter(4, 0.30)), 1, 10),
-                mood_score=clamp(int(jitter(7, 0.20)), 1, 10),
+                hydration_ml=int(jitter(2400 if profile != "high" else 1800, 0.20)),
+                sleep_hours=round(jitter(cfg["sleep"], 0.10), 1),
+                sleep_quality=clamp(int(jitter(8 if profile == "low" else 5 if profile == "high" else 7, 0.20)), 1, 10),
+                stress_level=clamp(int(jitter(cfg["stress"], 0.25)), 1, 10),
+                mood_score=clamp(int(jitter(8 if profile == "low" else 5 if profile == "high" else 7, 0.20)), 1, 10),
             ))
         d += timedelta(days=random.randint(1, 3))
 
     session.commit()
-    print(f"[DB] Seeded data for '{p['username']}'  ({p['club']})")
+    print(f"[DB] Seeded '{p['username']}'  ({p['club']})  profile={profile}")
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
@@ -325,11 +387,16 @@ def main():
 
     print("\n=== Done! ===")
     print("\nDemo accounts:")
-    print("  admin1   / admin123  — admin")
-    print("  coach1   / coach123  — coach  — FC Demo")
-    print("  coach2   / coach123  — coach  — FC Rivals")
+    print("  admin1    / admin123  — admin")
+    print()
+    clubs = {}
     for p in PLAYERS:
-        print(f"  {p['username']:<9} / {p['password']}  — player  — {p['club']}  ({p['position']})")
+        clubs.setdefault(p["club"], []).append(p)
+    for c in COACHES:
+        print(f"  {c['username']:<9} / coach123   — coach  — {c['club']}")
+        for p in clubs.get(c["club"], []):
+            print(f"  {p['username']:<9} / player123  — player — {c['club']}  ({p['position']}, risk={p['risk_profile']})")
+        print()
 
 
 if __name__ == "__main__":

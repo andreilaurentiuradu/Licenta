@@ -54,7 +54,7 @@ export default function Profile() {
         .pop-in     { animation: popIn 0.45s ease both; }
       `}</style>
 
-      <div className={`min-h-screen bg-gradient-to-br ${theme.bg} p-6 relative overflow-hidden`}>
+      <div className={`min-h-screen bg-gradient-to-br ${theme.bg} p-4 sm:p-6 relative overflow-hidden`}>
 
         {DOTS.map((d, i) => (
           <div key={i} className="dot-float absolute rounded-full bg-white pointer-events-none"
@@ -62,7 +62,7 @@ export default function Profile() {
           />
         ))}
 
-        <div className="relative z-10 max-w-lg mx-auto pt-4">
+        <div className="relative z-10 max-w-lg lg:max-w-2xl mx-auto pt-4">
 
           {/* Header */}
           <div className="slide-up flex items-center gap-4 mb-10">

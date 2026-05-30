@@ -58,7 +58,7 @@ export default function Register() {
         .form-card  { animation: slideUp 0.5s ease both; }
       `}</style>
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="min-h-screen bg-gradient-to-br ${bg} flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
 
         {/* Decorative lines */}
         <div className="absolute inset-0 pointer-events-none">
@@ -79,7 +79,7 @@ export default function Register() {
         ))}
 
         {/* Card */}
-        <div className="form-card relative z-10 w-full max-w-sm">
+        <div className="form-card relative z-10 w-full max-w-sm sm:max-w-md">
 
           {/* Header */}
           <div className="mb-8 text-center">
@@ -112,7 +112,7 @@ export default function Register() {
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label htmlFor="password" className="block text-xs font-medium text-white/60 mb-1.5">Password</label>
                 <input
@@ -148,7 +148,7 @@ export default function Register() {
                 onChange={(e) => set('club', e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label htmlFor="role" className="block text-xs font-medium text-white/60 mb-1.5">Role</label>
                 <select

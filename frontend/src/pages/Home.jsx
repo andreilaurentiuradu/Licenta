@@ -105,7 +105,7 @@ function FLPanel({ club }) {
 
       {/* Global model stats */}
       {status?.ready && (
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3 text-center">
           <div className="p-2 rounded-lg bg-white/5">
             <p className="text-base font-bold text-indigo-300">
               {acc !== null ? `${(acc * 100).toFixed(1)}%` : '—'}
@@ -268,7 +268,7 @@ export default function Home() {
         .nav-card { transition: transform 0.2s ease, background 0.2s ease; }
       `}</style>
 
-      <div className={`min-h-screen bg-gradient-to-br ${theme.bg} flex flex-col items-center justify-center p-6 relative overflow-hidden`}>
+      <div className={`min-h-screen bg-gradient-to-br ${theme.bg} flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden`}>
 
         {/* Grid lines */}
         <div className="absolute inset-0 pointer-events-none">
@@ -286,7 +286,7 @@ export default function Home() {
           />
         ))}
 
-        <div className="relative z-10 w-full max-w-md">
+        <div className="relative z-10 w-full max-w-md lg:max-w-4xl">
 
           {/* Sport badge */}
           <div className="slide-up flex items-center justify-between mb-10">
@@ -311,55 +311,28 @@ export default function Home() {
 
           {/* Navigation cards */}
           <div className="slide-up-3 mb-10">
-            {navCards.length % 2 === 0 ? (
-              <div className="grid grid-cols-2 gap-3">
-                {navCards.map((card) => (
-                  <button
-                    key={card.to}
-                    onClick={() => navigate(card.to)}
-                    className="nav-card text-left p-5 rounded-2xl bg-white/10 border border-white/15"
-                  >
-                    <span className="text-2xl block mb-3">{card.icon}</span>
-                    <p className="text-sm font-semibold text-white">{card.title}</p>
-                    <p className="text-xs text-white/40 mt-0.5">{card.desc}</p>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  {navCards.slice(0, 2).map((card) => (
-                    <button
-                      key={card.to}
-                      onClick={() => navigate(card.to)}
-                      className="nav-card text-left p-5 rounded-2xl bg-white/10 border border-white/15"
-                    >
-                      <span className="text-2xl block mb-3">{card.icon}</span>
-                      <p className="text-sm font-semibold text-white">{card.title}</p>
-                      <p className="text-xs text-white/40 mt-0.5">{card.desc}</p>
-                    </button>
-                  ))}
-                </div>
-                {navCards.slice(2).map((card) => (
-                  <button
-                    key={card.to}
-                    onClick={() => navigate(card.to)}
-                    className="nav-card w-full text-left p-5 rounded-2xl bg-white/10 border border-white/15"
-                  >
-                    <span className="text-2xl block mb-3">{card.icon}</span>
-                    <p className="text-sm font-semibold text-white">{card.title}</p>
-                    <p className="text-xs text-white/40 mt-0.5">{card.desc}</p>
-                  </button>
-                ))}
-              </>
-            )}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {navCards.map((card) => (
+                <button
+                  key={card.to}
+                  onClick={() => navigate(card.to)}
+                  className="nav-card text-left p-4 sm:p-5 rounded-2xl bg-white/10 border border-white/15"
+                >
+                  <span className="text-2xl block mb-3">{card.icon}</span>
+                  <p className="text-sm font-semibold text-white">{card.title}</p>
+                  <p className="text-xs text-white/40 mt-0.5">{card.desc}</p>
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* FL panel — coach only */}
-          {isCoach && <FLPanel club={club} />}
-
-          {/* Risk ranking — coach only */}
-          {isCoach && <RiskPanel navigate={navigate} />}
+          {/* FL panel + Risk ranking — coach only, side-by-side on desktop */}
+          {isCoach && (
+            <div className="lg:grid lg:grid-cols-2 lg:gap-6">
+              <FLPanel club={club} />
+              <RiskPanel navigate={navigate} />
+            </div>
+          )}
 
           {/* Sign out */}
           <div className="text-center">

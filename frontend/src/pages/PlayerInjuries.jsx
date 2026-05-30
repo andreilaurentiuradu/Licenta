@@ -77,7 +77,7 @@ export default function PlayerInjuries() {
       ) : (
         <form onSubmit={handleAdd} className="space-y-4 p-5 rounded-2xl bg-white/10 border border-white/15">
           <h2 className="text-sm font-semibold text-white">New Injury Record</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className={labelCls}>Date *</label>
               <input type="date" required className={inputCls} value={form.date} onChange={(e) => set('date', e.target.value)} />

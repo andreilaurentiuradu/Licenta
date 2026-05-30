@@ -69,7 +69,7 @@ export default function UserManagement() {
         .slide-up-2 { animation: slideUp 0.5s ease 0.1s both; }
       `}</style>
 
-      <div className={`min-h-screen bg-gradient-to-br ${theme.bg} p-6 relative overflow-hidden`}>
+      <div className={`min-h-screen bg-gradient-to-br ${theme.bg} p-4 sm:p-6 relative overflow-hidden`}>
 
         {DOTS.map((d, i) => (
           <div key={i} className="dot-float absolute rounded-full bg-white pointer-events-none"
@@ -77,7 +77,7 @@ export default function UserManagement() {
           />
         ))}
 
-        <div className="relative z-10 max-w-lg mx-auto pt-4">
+        <div className="relative z-10 max-w-lg lg:max-w-2xl mx-auto pt-4">
 
           <div className="slide-up flex items-center gap-4 mb-10">
             <button onClick={() => navigate('/home')} className="text-white/40 hover:text-white/80 transition-colors text-sm">
@@ -114,7 +114,7 @@ export default function UserManagement() {
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="password" className="block text-xs font-medium text-white/60 mb-1.5">Password</label>
                   <input

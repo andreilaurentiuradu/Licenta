@@ -94,7 +94,7 @@ export default function Support() {
         .faq-item:hover { background: rgba(255,255,255,0.12); }
       `}</style>
 
-      <div className={`min-h-screen bg-gradient-to-br ${theme.bg} p-6 relative overflow-hidden`}>
+      <div className={`min-h-screen bg-gradient-to-br ${theme.bg} p-4 sm:p-6 relative overflow-hidden`}>
 
         {/* Grid lines */}
         <div className="absolute inset-0 pointer-events-none">
@@ -108,7 +108,7 @@ export default function Support() {
           />
         ))}
 
-        <div className="relative z-10 max-w-lg mx-auto pt-4">
+        <div className="relative z-10 max-w-lg lg:max-w-2xl mx-auto pt-4">
 
           {/* Header */}
           <div className="slide-up flex items-center gap-4 mb-10">

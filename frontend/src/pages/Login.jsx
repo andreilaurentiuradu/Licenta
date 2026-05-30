@@ -73,7 +73,7 @@ export default function Login() {
         ))}
 
         {/* Card */}
-        <div className="form-card relative z-10 w-full max-w-sm">
+        <div className="form-card relative z-10 w-full max-w-sm sm:max-w-md">
 
           {/* Logo / brand */}
           <div className="mb-8 text-center">

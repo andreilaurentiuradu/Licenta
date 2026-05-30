@@ -67,8 +67,8 @@ export default function PlayerRecommendations() {
         </div>
       </div>
 
-      {/* Recommendation cards */}
-      <div className="space-y-3">
+      {/* Recommendation cards — 1 col mobile, 2 col desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {(data.recommendations ?? []).map((rec, i) => {
           const s = PRIORITY_STYLE[rec.priority] || PRIORITY_STYLE.low
           return (

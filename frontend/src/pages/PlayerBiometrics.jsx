@@ -91,7 +91,7 @@ export default function PlayerBiometrics() {
       {editing && (
         <form onSubmit={handleSave} className="space-y-4 p-5 rounded-2xl bg-white/10 border border-white/15">
           <h2 className="text-sm font-semibold text-white">Edit Biometrics</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {fields.map((f) => (
               <div key={f.key}>
                 <label className={labelCls}>{f.label}</label>

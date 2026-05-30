@@ -63,7 +63,7 @@ export default function Feedback() {
         .star-btn:hover { transform: scale(1.2); }
       `}</style>
 
-      <div className={`min-h-screen bg-gradient-to-br ${theme.bg} p-6 relative overflow-hidden`}>
+      <div className={`min-h-screen bg-gradient-to-br ${theme.bg} p-4 sm:p-6 relative overflow-hidden`}>
 
         <div className="absolute inset-0 pointer-events-none">
           {['25%','50%','75%'].map(t => <div key={t} className="absolute w-full h-px bg-white opacity-5" style={{ top: t }} />)}
@@ -76,7 +76,7 @@ export default function Feedback() {
           />
         ))}
 
-        <div className="relative z-10 max-w-lg mx-auto pt-4">
+        <div className="relative z-10 max-w-lg lg:max-w-2xl mx-auto pt-4">
 
           <div className="slide-up flex items-center gap-4 mb-10">
             <button onClick={() => navigate('/home')} className="text-white/40 hover:text-white/80 transition-colors text-sm">

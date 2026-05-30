@@ -63,7 +63,7 @@ function FLPanel({ club }) {
 
       {/* Global model stats */}
       {flStatus?.ready && (
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3 text-center">
           <div className="p-2 rounded-lg bg-white/5">
             <p className="text-lg font-bold text-indigo-300">
               {acc !== null ? `${(acc * 100).toFixed(1)}%` : '—'}
@@ -175,8 +175,8 @@ export default function PlayersList() {
   const coachClub = user?.club
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${accent} p-6`}>
-      <div className="max-w-2xl mx-auto">
+    <div className={`min-h-screen bg-gradient-to-br ${accent} px-4 sm:px-6 py-6`}>
+      <div className="max-w-2xl lg:max-w-5xl mx-auto">
 
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
@@ -221,7 +221,7 @@ export default function PlayersList() {
                   <span className="text-xs text-white/30">{clubPlayers.length} player{clubPlayers.length !== 1 ? 's' : ''}</span>
                   <div className="flex-1 h-px bg-white/10" />
                 </div>
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {clubPlayers.map((p) => (
                     <PlayerCard
                       key={p.user_id}
@@ -235,7 +235,7 @@ export default function PlayersList() {
           </div>
         ) : (
           // Coach: flat list (already filtered by backend)
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {players.map((p) => (
               <PlayerCard
                 key={p.user_id}

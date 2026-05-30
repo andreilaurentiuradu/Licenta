@@ -52,7 +52,7 @@ def centralized_baseline(df: pd.DataFrame) -> tuple:
 
 def run(data_path: Path, n_clubs: int, fl_rounds: int):
     print("=" * 55)
-    print(" SportAnalytics — Federated Learning Simulation")
+    print(" LawrAnalyzer — Federated Learning Simulation")
     print("=" * 55)
 
     df = load(data_path)

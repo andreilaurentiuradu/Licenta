@@ -4,7 +4,7 @@ from flask import request, jsonify, g
 from jose import jwt, JWTError, jwk
 
 KEYCLOAK_URL   = os.environ.get("KEYCLOAK_URL",   "http://keycloak:8080")
-KEYCLOAK_REALM = os.environ.get("KEYCLOAK_REALM", "sport-analytics")
+KEYCLOAK_REALM = os.environ.get("KEYCLOAK_REALM", "lawranalyzer")
 
 def _get_public_keys():
     url = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/certs"

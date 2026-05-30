@@ -8,8 +8,8 @@ const THEMES = {
 
 const FAQS = [
   {
-    q: 'What is SportAnalytics?',
-    a: 'SportAnalytics is a platform for sports clubs that centralises player metrics — biometrics, training load, physical assessments, injury history, nutrition, sleep and stress — and uses AI to support coaches in preventing injuries and optimising performance.',
+    q: 'What is LawrAnalyzer?',
+    a: 'LawrAnalyzer is a platform for sports clubs that centralises player metrics — biometrics, training load, physical assessments, injury history, nutrition, sleep and stress — and uses AI to support coaches in preventing injuries and optimising performance.',
   },
   {
     q: 'What roles are available?',
@@ -101,8 +101,8 @@ export default function Support() {
           {/* Contact cards */}
           <div className="slide-up grid grid-cols-2 gap-3 mb-8">
             {[
-              { icon: '📧', label: 'Email', value: 'support@sportanalytics.io' },
-              { icon: '📖', label: 'Docs', value: 'docs.sportanalytics.io' },
+              { icon: '📧', label: 'Email', value: 'support@lawranalyzer.io' },
+              { icon: '📖', label: 'Docs', value: 'docs.lawranalyzer.io' },
             ].map((c) => (
               <div key={c.label} className="p-4 rounded-2xl bg-white/10 border border-white/15">
                 <span className="text-xl block mb-2">{c.icon}</span>

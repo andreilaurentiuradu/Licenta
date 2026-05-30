@@ -1,5 +1,5 @@
 {
-  "realm": "sport-analytics",
+  "realm": "lawranalyzer",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
@@ -17,8 +17,8 @@
   },
   "clients": [
     {
-      "clientId": "sport-analytics-client",
-      "name": "SportAnalytics Client",
+      "clientId": "lawranalyzer-client",
+      "name": "LawrAnalyzer Client",
       "enabled": true,
       "publicClient": true,
       "directAccessGrantsEnabled": true,
@@ -57,7 +57,7 @@
       "requiredActions": [],
       "credentials": [{ "type": "password", "value": "admin123", "temporary": false }],
       "realmRoles": ["admin"],
-      "attributes": { "club": ["SportAnalytics HQ"] }
+      "attributes": { "club": ["LawrAnalyzer HQ"] }
     },
     {
       "username": "coach_user",

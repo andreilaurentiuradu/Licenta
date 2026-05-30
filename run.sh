@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-STACK="sportanalytics"
+STACK="lawranalyzer"
 
 # Load .env so docker stack deploy picks up secrets (e.g. OPENAI_API_KEY)
 if [ -f "$ROOT/.env" ]; then
@@ -18,7 +18,7 @@ NB_DEPS="notebook numpy pandas scikit-learn matplotlib"
 
 usage() {
   cat <<'EOF'
-SportAnalytics — Predictive Analytics Platform
+LawrAnalyzer — Predictive Analytics Platform
 Privacy-by-Design · Federated Learning · Injury Prediction
 
 Usage: ./run.sh <command> [args]
@@ -74,13 +74,13 @@ build_images() {
     echo "[build] WARNING: datasets/football_data.csv not found — FL bootstrap will be skipped."
   fi
 
-  docker build -t sportanalytics-gateway:latest  "$ROOT/gateway"
-  docker build -t sportanalytics-auth:latest     "$ROOT/services/auth-service"
-  docker build -t sportanalytics-player:latest   "$ROOT/services/player-service"
-  docker build -t sportanalytics-fl:latest       "$ROOT/services/fl-service"
-  docker build -t sportanalytics-ai:latest       "$ROOT/services/ai-service"
-  docker build -t sportanalytics-feedback:latest "$ROOT/services/feedback-service"
-  docker build -t sportanalytics-frontend:latest "$ROOT/frontend"
+  docker build -t lawranalyzer-gateway:latest  "$ROOT/gateway"
+  docker build -t lawranalyzer-auth:latest     "$ROOT/services/auth-service"
+  docker build -t lawranalyzer-player:latest   "$ROOT/services/player-service"
+  docker build -t lawranalyzer-fl:latest       "$ROOT/services/fl-service"
+  docker build -t lawranalyzer-ai:latest       "$ROOT/services/ai-service"
+  docker build -t lawranalyzer-feedback:latest "$ROOT/services/feedback-service"
+  docker build -t lawranalyzer-frontend:latest "$ROOT/frontend"
 
   docker image prune -f
   echo "[build] Done."
@@ -175,23 +175,23 @@ run_seed() {
   echo "[seed] Seeding demo accounts and mock player metrics..."
   WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
   MSYS_NO_PATHCONV=1 docker run --rm \
-    --add-host=host.docker.internal:host-gateway \
+    --network "${STACK}_default" \
     -v "${WIN_ROOT}/scripts:/app" \
     -w /app \
-    -e KEYCLOAK_URL="http://host.docker.internal:8180" \
-    -e DATABASE_URL="postgresql://sa_user:sa_pass@host.docker.internal:5432/sportanalytics" \
+    -e KEYCLOAK_URL="http://keycloak:8080" \
+    -e DATABASE_URL="postgresql://sa_user:sa_pass@postgres:5432/lawranalyzer" \
     python:3.11-slim \
     bash -c "pip install --no-cache-dir -q -r requirements.txt && python seed.py"
 }
 
 open_db_shell() {
-  echo "[db] Connecting to Postgres (sportanalytics)..."
+  echo "[db] Connecting to Postgres (lawranalyzer)..."
   CONTAINER=$(docker ps --filter "name=${STACK}_postgres" --format "{{.ID}}" | head -1)
   if [ -z "$CONTAINER" ]; then
     echo "[db] ERROR: Postgres is not running. Start the stack first: ./run.sh start"
     exit 1
   fi
-  docker exec -it "$CONTAINER" psql -U sa_user -d sportanalytics
+  docker exec -it "$CONTAINER" psql -U sa_user -d lawranalyzer
 }
 
 

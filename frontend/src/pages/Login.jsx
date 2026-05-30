@@ -77,7 +77,7 @@ export default function Login() {
 
           {/* Logo / brand */}
           <div className="mb-8 text-center">
-            <p className="text-2xl font-bold text-white tracking-tight">SportAnalytics</p>
+            <p className="text-2xl font-bold text-white tracking-tight">LawrAnalyzer</p>
             <p className="text-xs mt-1 text-white/40">Sign in to your account</p>
           </div>
 

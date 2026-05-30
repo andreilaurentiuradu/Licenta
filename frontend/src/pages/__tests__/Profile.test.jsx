@@ -61,13 +61,13 @@ describe('Profile page', () => {
       user: {
         username: 'laur',
         email:    'l@x.ro',
-        roles:    ['coach', 'default-roles-sport-analytics', 'offline_access'],
+        roles:    ['coach', 'default-roles-lawranalyzer', 'offline_access'],
       },
       logout: vi.fn(),
     })
     renderWithRouter(<Profile />)
     expect(screen.getByText('coach')).toBeInTheDocument()
-    expect(screen.queryByText('default-roles-sport-analytics')).not.toBeInTheDocument()
+    expect(screen.queryByText('default-roles-lawranalyzer')).not.toBeInTheDocument()
     expect(screen.queryByText('offline_access')).not.toBeInTheDocument()
   })
 })

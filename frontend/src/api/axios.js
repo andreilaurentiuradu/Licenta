@@ -20,11 +20,11 @@ api.interceptors.response.use(
           // Refresh via Keycloak token endpoint (proxied through Vite)
           const params = new URLSearchParams({
             grant_type:    'refresh_token',
-            client_id:     'sport-analytics-client',
+            client_id:     'lawranalyzer-client',
             refresh_token: refresh,
           })
           const { data } = await axios.post(
-            '/realms/sport-analytics/protocol/openid-connect/token',
+            '/realms/lawranalyzer/protocol/openid-connect/token',
             params,
             { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
           )

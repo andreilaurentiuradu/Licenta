@@ -23,9 +23,9 @@ from sqlalchemy import Column, Integer, String, Float, Boolean, Date, Text, Date
 from datetime import datetime, timezone
 
 KC_URL   = os.environ.get("KEYCLOAK_URL", "http://localhost:8180")
-KC_REALM = "sport-analytics"
+KC_REALM = "lawranalyzer"
 DB_URL   = os.environ.get("DATABASE_URL",
-           "postgresql://sa_user:sa_pass@localhost:5432/sportanalytics")
+           "postgresql://sa_user:sa_pass@localhost:5432/lawranalyzer")
 
 COACHES = [
     {"username": "coach1",  "email": "coach1@demo.ro",  "password": "coach123",
@@ -295,7 +295,7 @@ def seed_player(session, uid, p):
 # ── Main ───────────────────────────────────────────────────────────────────
 
 def main():
-    print("=== SportAnalytics seed ===\n")
+    print("=== LawrAnalyzer seed ===\n")
 
     print("[1/2] Creating Keycloak accounts...")
     token = admin_token()

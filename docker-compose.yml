@@ -17,7 +17,7 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB:       sportanalytics
+      POSTGRES_DB:       lawranalyzer
       POSTGRES_USER:     sa_user
       POSTGRES_PASSWORD: sa_pass
     volumes:
@@ -46,7 +46,7 @@ services:
       disable: true
 
   gateway:
-    image: sportanalytics-gateway:latest
+    image: lawranalyzer-gateway:latest
     ports:
       - "5000:80"
     deploy:
@@ -54,10 +54,10 @@ services:
       restart_policy: {condition: on-failure, delay: 5s}
 
   auth-service:
-    image: sportanalytics-auth:latest
+    image: lawranalyzer-auth:latest
     environment:
       KEYCLOAK_URL:        http://keycloak:8080
-      KEYCLOAK_REALM:      sport-analytics
+      KEYCLOAK_REALM:      lawranalyzer
       KEYCLOAK_ADMIN_USER: admin
       KEYCLOAK_ADMIN_PASS: admin123
     deploy:
@@ -65,11 +65,11 @@ services:
       restart_policy: {condition: on-failure, delay: 5s}
 
   player-service:
-    image: sportanalytics-player:latest
+    image: lawranalyzer-player:latest
     environment:
-      DATABASE_URL:        postgresql://sa_user:sa_pass@postgres:5432/sportanalytics
+      DATABASE_URL:        postgresql://sa_user:sa_pass@postgres:5432/lawranalyzer
       KEYCLOAK_URL:        http://keycloak:8080
-      KEYCLOAK_REALM:      sport-analytics
+      KEYCLOAK_REALM:      lawranalyzer
       KEYCLOAK_ADMIN_USER: admin
       KEYCLOAK_ADMIN_PASS: admin123
       FL_SERVICE_URL:      http://fl-service:5003
@@ -78,11 +78,11 @@ services:
       restart_policy: {condition: on-failure, delay: 5s}
 
   fl-service:
-    image: sportanalytics-fl:latest
+    image: lawranalyzer-fl:latest
     environment:
-      DATABASE_URL:        postgresql://sa_user:sa_pass@postgres:5432/sportanalytics
+      DATABASE_URL:        postgresql://sa_user:sa_pass@postgres:5432/lawranalyzer
       KEYCLOAK_URL:        http://keycloak:8080
-      KEYCLOAK_REALM:      sport-analytics
+      KEYCLOAK_REALM:      lawranalyzer
       KEYCLOAK_ADMIN_USER: admin
       KEYCLOAK_ADMIN_PASS: admin123
     deploy:
@@ -90,28 +90,28 @@ services:
       restart_policy: {condition: on-failure, delay: 5s}
 
   ai-service:
-    image: sportanalytics-ai:latest
+    image: lawranalyzer-ai:latest
     environment:
-      DATABASE_URL:        postgresql://sa_user:sa_pass@postgres:5432/sportanalytics
+      DATABASE_URL:        postgresql://sa_user:sa_pass@postgres:5432/lawranalyzer
       KEYCLOAK_URL:        http://keycloak:8080
-      KEYCLOAK_REALM:      sport-analytics
+      KEYCLOAK_REALM:      lawranalyzer
       GROQ_API_KEY:        ${GROQ_API_KEY:-}
     deploy:
       replicas: 1
       restart_policy: {condition: on-failure, delay: 5s}
 
   feedback-service:
-    image: sportanalytics-feedback:latest
+    image: lawranalyzer-feedback:latest
     environment:
-      DATABASE_URL:        postgresql://sa_user:sa_pass@postgres:5432/sportanalytics
+      DATABASE_URL:        postgresql://sa_user:sa_pass@postgres:5432/lawranalyzer
       KEYCLOAK_URL:        http://keycloak:8080
-      KEYCLOAK_REALM:      sport-analytics
+      KEYCLOAK_REALM:      lawranalyzer
     deploy:
       replicas: 1
       restart_policy: {condition: on-failure, delay: 5s}
 
   frontend:
-    image: sportanalytics-frontend:latest
+    image: lawranalyzer-frontend:latest
     environment:
       BACKEND_URL: http://gateway:80
       KC_URL:      http://keycloak:8080
@@ -121,3 +121,7 @@ services:
 
 volumes:
   pg_data:
+
+networks:
+  default:
+    attachable: true

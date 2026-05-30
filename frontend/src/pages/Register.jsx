@@ -83,7 +83,7 @@ export default function Register() {
 
           {/* Header */}
           <div className="mb-8 text-center">
-            <p className="text-2xl font-bold text-white tracking-tight">SportAnalytics</p>
+            <p className="text-2xl font-bold text-white tracking-tight">LawrAnalyzer</p>
             <p className="text-xs mt-1 text-white/40">Create your account</p>
           </div>
 

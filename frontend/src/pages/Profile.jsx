@@ -106,7 +106,7 @@ export default function Profile() {
             <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-4">Assigned roles</p>
             <div className="flex flex-wrap gap-2 px-1">
               {(user?.roles ?? [])
-                .filter(r => !['default-roles-sport-analytics', 'offline_access', 'uma_authorization'].includes(r))
+                .filter(r => !['default-roles-lawranalyzer', 'offline_access', 'uma_authorization'].includes(r))
                 .map(r => (
                   <span key={r} className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-white/70">
                     {r}

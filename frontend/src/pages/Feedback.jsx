@@ -93,7 +93,7 @@ export default function Feedback() {
             <div className="pop-in text-center py-16">
               <div className="text-6xl mb-6">🎉</div>
               <h2 className="text-xl font-bold text-white mb-2">Thanks for your feedback!</h2>
-              <p className="text-sm text-white/40 mb-8">Your input helps us improve SportAnalytics.</p>
+              <p className="text-sm text-white/40 mb-8">Your input helps us improve LawrAnalyzer.</p>
               <button
                 onClick={() => navigate('/home')}
                 className={`${theme.btn} text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-all duration-200`}

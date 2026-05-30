@@ -182,7 +182,7 @@ export default function SportSelect() {
           style={{ opacity: hovered ? 0 : 1, transition: 'opacity 0.3s' }}
         >
           <p className="text-white text-xs tracking-widest uppercase" style={{ opacity: 0.5, letterSpacing: '0.3em' }}>
-            SportAnalytics · Choose your sport
+            LawrAnalyzer · Choose your sport
           </p>
         </div>
       </div>

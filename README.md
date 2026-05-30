@@ -1,4 +1,4 @@
-# SportAnalytics — Predictive Analytics Platform for Elite Sports
+# LawrAnalyzer — Predictive Analytics Platform for Elite Sports
 
 A SaaS platform that helps sports clubs anticipate player injuries, support tactical decisions, and optimise training programmes using Federated Learning — a privacy-by-design AI architecture where raw player data never leaves the club's infrastructure.
 
@@ -324,7 +324,7 @@ Created automatically from `keycloak/realm-export.json` on first startup.
 
 ### Authentication & RBAC
 
-- Keycloak realm `sport-analytics` auto-imported at container startup
+- Keycloak realm `lawranalyzer` auto-imported at container startup
 - Three realm roles: `admin`, `coach`, `player`
 - JWT verified via Keycloak JWKS endpoint (RS256) — independently in each microservice; no shared secret
 - `club` attribute stored in Keycloak user profile; fetched via admin API as fallback when absent from JWT claims

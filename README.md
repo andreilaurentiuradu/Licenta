@@ -87,7 +87,7 @@ A single container. An FL crash or slow LLM call blocks the entire API.
 │  Gateway  ·  Nginx  (port 5000 → 80)   [Docker Swarm]          │
 │                                                                 │
 │   /api/auth/                        → auth-service:5001        │
-│   /api/players/<id>/recommendations → ai-service:5004          │
+│   /api/players/<id>/recommendations → ai-recommendation-service:5004          │
 │   /api/players/                     → player-service:5002      │
 │   /api/fl/                          → fl-service:5003          │
 │   /api/feedback/                    → feedback-service:5005    │
@@ -208,7 +208,7 @@ player-service  ──POST /internal/trigger──►  fl-service
 │   │       ├── server.py           # fed_avg() weighted average implementation
 │   │       ├── client.py           # Local training client
 │   │       └── simulate.py         # Standalone simulation (run.sh fl)
-│   ├── ai-service/                 # AI recommendations via Groq (port 5004)
+│   ├── ai-recommendation-service/                 # AI recommendations via Groq (port 5004)
 │   │   ├── app.py
 │   │   ├── auth.py
 │   │   ├── models.py
@@ -286,7 +286,7 @@ player-service  ──POST /internal/trigger──►  fl-service
 ./run.sh logs auth-service        # tail auth-service logs
 ./run.sh logs player-service      # tail player-service logs
 ./run.sh logs fl-service          # tail FL service logs (bootstrap + FedAvg rounds)
-./run.sh logs ai-service          # tail AI service logs
+./run.sh logs ai-recommendation-service          # tail AI service logs
 ./run.sh logs feedback-service    # tail feedback-service logs
 ./run.sh logs frontend            # tail frontend logs
 ./run.sh test                     # run frontend unit tests (vitest) in Docker
@@ -415,7 +415,7 @@ Privacy-by-design: raw player data never leaves the service. Only model weights 
 | `GET` | `/api/fl/status` | coach / admin | Current global model: round, accuracy, clubs, samples |
 | `POST` | `/internal/trigger` | internal only | Called by player-service after data mutations |
 
-### AI Recommendations (ai-service)
+### AI Recommendations (ai-recommendation-service)
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
@@ -487,7 +487,7 @@ Each microservice has its own pytest suite. The frontend uses vitest. All tests 
 | auth-service | `test_auth.py` | register validation, role enforcement, `/me`, admin create-user |
 | player-service | `test_players.py` | biometrics CRUD + RBAC, training, physical, wellness (nutrition_score), injuries |
 | fl-service | `test_fl.py` | status (no model / with model), internal trigger, train RBAC |
-| ai-service | `test_ai.py` | RBAC, response structure, Groq fallback to defaults, mock AI call |
+| ai-recommendation-service | `test_ai.py` | RBAC, response structure, Groq fallback to defaults, mock AI call |
 | feedback-service | `test_feedback.py` | submit validation, persistence, admin list |
 
 **Frontend (vitest + Testing Library)** — 42 tests across 8 files:

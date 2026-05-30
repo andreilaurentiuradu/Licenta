@@ -98,7 +98,7 @@ jobs:
           KEYCLOAK_URL: http://localhost
           KEYCLOAK_REALM: test
 
-  ai-service-tests:
+  ai-recommendation-service-tests:
     name: AI Service Tests
     runs-on: ubuntu-latest
     steps:
@@ -113,15 +113,15 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-ai-${{ hashFiles('services/ai-service/requirements.txt') }}
+          key: ${{ runner.os }}-pip-ai-${{ hashFiles('services/ai-recommendation-service/requirements.txt') }}
           restore-keys: ${{ runner.os }}-pip-ai-
 
       - name: Install dependencies
-        working-directory: services/ai-service
+        working-directory: services/ai-recommendation-service
         run: pip install -r requirements.txt
 
-      - name: Run ai-service tests
-        working-directory: services/ai-service
+      - name: Run ai-recommendation-service tests
+        working-directory: services/ai-recommendation-service
         run: pytest tests/ -v --tb=short
         env:
           DATABASE_URL: "sqlite:///:memory:"
@@ -187,7 +187,7 @@ jobs:
       - auth-service-tests
       - player-service-tests
       - fl-service-tests
-      - ai-service-tests
+      - ai-recommendation-service-tests
       - feedback-service-tests
       - frontend-tests
     steps:

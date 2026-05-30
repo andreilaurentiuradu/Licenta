@@ -29,12 +29,12 @@ def _init_db():
         try:
             with app.app_context():
                 db.create_all()
-            log.info("[ai-service] DB initialised.")
+            log.info("[ai-recommendation-service] DB initialised.")
             return
         except Exception as exc:
-            log.warning("[ai-service] DB not ready (attempt %d/30): %s", attempt + 1, exc)
+            log.warning("[ai-recommendation-service] DB not ready (attempt %d/30): %s", attempt + 1, exc)
             time.sleep(3)
-    log.error("[ai-service] Could not connect to DB after 30 attempts.")
+    log.error("[ai-recommendation-service] Could not connect to DB after 30 attempts.")
 
 
 threading.Thread(target=_init_db, daemon=True, name="db-init").start()

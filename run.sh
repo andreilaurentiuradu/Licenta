@@ -78,7 +78,7 @@ build_images() {
   docker build -t lawranalyzer-auth:latest     "$ROOT/services/auth-service"
   docker build -t lawranalyzer-player:latest   "$ROOT/services/player-service"
   docker build -t lawranalyzer-fl:latest       "$ROOT/services/fl-service"
-  docker build -t lawranalyzer-ai:latest       "$ROOT/services/ai-service"
+  docker build -t lawranalyzer-ai-recommendation:latest       "$ROOT/services/ai-recommendation-service"
   docker build -t lawranalyzer-feedback:latest "$ROOT/services/feedback-service"
   docker build -t lawranalyzer-frontend:latest "$ROOT/frontend"
 
@@ -112,7 +112,7 @@ stack_deploy() {
     auth-service     → /api/auth/
     player-service   → /api/players/
     fl-service       → /api/fl/
-    ai-service       → /api/players/<id>/recommendations
+    ai-recommendation-service       → /api/players/<id>/recommendations
     feedback-service → /api/feedback/
 
   Demo accounts (run ./run.sh seed first):
@@ -290,14 +290,14 @@ case "$CMD" in
       auth)     run_service_tests auth-service ;;
       player)   run_service_tests player-service ;;
       fl)       run_service_tests fl-service ;;
-      ai)       run_service_tests ai-service ;;
+      ai)       run_service_tests ai-recommendation-service ;;
       feedback) run_service_tests feedback-service ;;
       frontend) run_frontend_tests ;;
       all)
         run_service_tests auth-service
         run_service_tests player-service
         run_service_tests fl-service
-        run_service_tests ai-service
+        run_service_tests ai-recommendation-service
         run_service_tests feedback-service
         run_frontend_tests
         ;;

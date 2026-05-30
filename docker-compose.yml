@@ -5,7 +5,7 @@ version: '3.8'
 # Deploy:  ./run.sh start
 # Stop:    ./run.sh stop
 # Status:  ./run.sh status
-# Logs:    ./run.sh logs [postgres|keycloak|gateway|auth-service|player-service|fl-service|ai-service|feedback-service|frontend]
+# Logs:    ./run.sh logs [postgres|keycloak|gateway|auth-service|player-service|fl-service|ai-recommendation-service|feedback-service|frontend]
 # ─────────────────────────────────────────────────────────────────
 
 configs:
@@ -89,8 +89,8 @@ services:
       replicas: 1
       restart_policy: {condition: on-failure, delay: 5s}
 
-  ai-service:
-    image: lawranalyzer-ai:latest
+  ai-recommendation-service:
+    image: lawranalyzer-ai-recommendation:latest
     environment:
       DATABASE_URL:        postgresql://sa_user:sa_pass@postgres:5432/lawranalyzer
       KEYCLOAK_URL:        http://keycloak:8080

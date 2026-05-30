@@ -308,15 +308,33 @@ player-service  ──POST /internal/trigger──►  fl-service
 
 ## Demo Accounts
 
-Created automatically from `keycloak/realm-export.json` on first startup.
+`admin1` is created from `keycloak/realm-export.json` at startup. All other accounts are created by `./run.sh seed`.
 
-| Username | Password | Role | Notes |
-|---|---|---|---|
-| `admin1` | `admin123` | admin | Full platform access |
-| `coach1` | `coach123` | coach | Sees all players in their club |
-| `player1` | `player123` | player | Midfielder · mock data pre-seeded |
-| `player2` | `player123` | player | Forward · mock data pre-seeded |
-| `player3` | `player123` | player | Defender · mock data pre-seeded |
+| Username | Password | Role | Club | Notes |
+|---|---|---|---|---|
+| `admin1` | `admin123` | admin | — | Full platform access |
+| `coach1` | `coach123` | coach | FC Demo | Low injury risk club |
+| `coach2` | `coach123` | coach | FC Rivals | High injury risk club |
+| `coach3` | `coach123` | coach | FC United | Mixed risk club |
+| `coach4` | `coach123` | coach | FC Alpha | Overtraining pattern |
+| `player1` | `player123` | player | FC Demo | Midfielder · risk: low |
+| `player2` | `player123` | player | FC Demo | Forward · risk: low |
+| `player3` | `player123` | player | FC Demo | Defender · risk: medium |
+| `player4` | `player123` | player | FC Rivals | Forward · risk: high |
+| `player5` | `player123` | player | FC Rivals | Goalkeeper · risk: high |
+| `player6` | `player123` | player | FC Rivals | Midfielder · risk: medium |
+| `player7` | `player123` | player | FC United | Defender · risk: medium |
+| `player8` | `player123` | player | FC United | Forward · risk: low |
+| `player9` | `player123` | player | FC United | Goalkeeper · risk: high |
+| `player10` | `player123` | player | FC Alpha | Midfielder · risk: high |
+| `player11` | `player123` | player | FC Alpha | Forward · risk: high |
+| `player12` | `player123` | player | FC Alpha | Defender · risk: medium |
+
+The 4 clubs have distinct risk profiles — designed to make FedAvg aggregation observable:
+- **FC Demo** — good sleep, low stress, high warmup adherence → 0–1 injuries per player
+- **FC Rivals** — poor sleep, high stress, low warmup → 2–3 injuries per player
+- **FC United** — mixed profile
+- **FC Alpha** — overtraining pattern (high training load + high injury count)
 
 ---
 
@@ -460,6 +478,18 @@ User identity is owned by Keycloak — no users table in the application databas
 
 ### Tests
 
+Each microservice has its own pytest suite. The frontend uses vitest. All tests run in CI on every push.
+
+**Backend (pytest)** — SQLite in-memory, Keycloak JWT mocked via `pytest-mock`:
+
+| Service | File | Coverage |
+|---|---|---|
+| auth-service | `test_auth.py` | register validation, role enforcement, `/me`, admin create-user |
+| player-service | `test_players.py` | biometrics CRUD + RBAC, training, physical, wellness (nutrition_score), injuries |
+| fl-service | `test_fl.py` | status (no model / with model), internal trigger, train RBAC |
+| ai-service | `test_ai.py` | RBAC, response structure, Groq fallback to defaults, mock AI call |
+| feedback-service | `test_feedback.py` | submit validation, persistence, admin list |
+
 **Frontend (vitest + Testing Library)** — 42 tests across 8 files:
 
 - `AuthContext.test.jsx` — token storage, login, logout, expired token
@@ -471,4 +501,13 @@ User identity is owned by Keycloak — no users table in the application databas
 - `Home.test.jsx` — role-aware cards: admin → User Management, coach → Players, player → My Stats
 - `SportSelect.test.jsx` — sport card click, localStorage, navigation
 
-Run with: `./run.sh test`
+```bash
+./run.sh test all        # toate serviciile + frontend
+./run.sh test player     # doar player-service
+./run.sh test frontend   # doar frontend
+```
+
+**CI/CD (GitHub Actions)** — `.github/workflows/ci.yml`:
+- 6 joburi paralele (unul per serviciu + frontend)
+- Rulează la orice push și pe orice PR spre `main`
+- Job `All tests passed` — target pentru branch protection pe `main`

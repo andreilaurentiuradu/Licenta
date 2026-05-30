@@ -170,7 +170,6 @@ export default function Register() {
                   onChange={(e) => set('sport', e.target.value)}
                 >
                   <option value="football" className="bg-slate-900">⚽ Football</option>
-                  <option value="marathon" className="bg-slate-900">🏃 Marathon</option>
                 </select>
               </div>
             </div>

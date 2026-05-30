@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 
 const THEMES = {
   football: { bg: 'from-emerald-950 via-emerald-900 to-green-800', accent: '#34d399', ring: 'focus:ring-emerald-500' },
-  marathon: { bg: 'from-orange-950 via-orange-900 to-red-800',     accent: '#fb923c', ring: 'focus:ring-orange-500' },
 }
 
 const DOTS = [

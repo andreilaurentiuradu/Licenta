@@ -18,34 +18,24 @@ describe('SportSelect page', () => {
     mockNavigate.mockReset()
   })
 
-  it('renders both sport options', () => {
+  it('renders football sport option', () => {
     renderWithRouter(<SportSelect />)
     expect(screen.getAllByText('Football').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Marathon').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Marathon')).toBeNull()
   })
 
-  it('renders sport subtitles', () => {
+  it('renders football subtitle', () => {
     renderWithRouter(<SportSelect />)
     expect(screen.getByText(/Injury risk/i)).toBeInTheDocument()
-    expect(screen.getByText(/Endurance metrics/i)).toBeInTheDocument()
   })
 
   it('saves football choice to localStorage and navigates to /home', async () => {
     const { container } = renderWithRouter(<SportSelect />)
     const cards = container.querySelectorAll('.sport-card')
-    expect(cards).toHaveLength(2)
+    expect(cards).toHaveLength(1)
 
     await userEvent.click(cards[0])
     expect(localStorage.getItem('selected_sport')).toBe('football')
-    expect(mockNavigate).toHaveBeenCalledWith('/home')
-  })
-
-  it('saves marathon choice to localStorage and navigates to /home', async () => {
-    const { container } = renderWithRouter(<SportSelect />)
-    const cards = container.querySelectorAll('.sport-card')
-
-    await userEvent.click(cards[1])
-    expect(localStorage.getItem('selected_sport')).toBe('marathon')
     expect(mockNavigate).toHaveBeenCalledWith('/home')
   })
 })

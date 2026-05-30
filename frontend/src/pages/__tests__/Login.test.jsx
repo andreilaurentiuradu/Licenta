@@ -61,7 +61,7 @@ describe('Login page', () => {
   })
 
   it('preserves existing sport in localStorage', async () => {
-    localStorage.setItem('selected_sport', 'marathon')
+    localStorage.setItem('selected_sport', 'football')
     mockLogin.mockResolvedValueOnce({ username: 'coach_user' })
     renderWithRouter(<Login />)
 
@@ -70,7 +70,7 @@ describe('Login page', () => {
     await userEvent.click(screen.getByRole('button', { name: /Sign in/i }))
 
     await waitFor(() => {
-      expect(localStorage.getItem('selected_sport')).toBe('marathon')
+      expect(localStorage.getItem('selected_sport')).toBe('football')
     })
   })
 

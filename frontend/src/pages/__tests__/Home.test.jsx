@@ -1,11 +1,11 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import Home from '../Home'
 import { renderWithRouter } from '../../test/renderWithRouter'
 
-const mockUseAuth = vi.fn()
+const mockUseAuth  = vi.fn()
 const mockNavigate = vi.fn()
 
 vi.mock('../../contexts/AuthContext', () => ({
@@ -17,11 +17,21 @@ vi.mock('react-router-dom', async (orig) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
+vi.mock('../../api/fl', () => ({
+  triggerFLRound: vi.fn().mockResolvedValue({ data: { trained: false, warning: null } }),
+  getFlStatus:    vi.fn().mockResolvedValue({ data: { ready: false } }),
+  getRiskRanking: vi.fn().mockResolvedValue({ data: [] }),
+}))
+
 
 describe('Home page', () => {
+  beforeEach(() => {
+    mockNavigate.mockReset()
+  })
+
   it('shows coach badge and Players card for coach user', () => {
     mockUseAuth.mockReturnValue({
-      user:   { username: 'coach_user', roles: ['coach'] },
+      user:   { username: 'coach_user', roles: ['coach'], club: 'FC Demo' },
       logout: vi.fn(),
     })
     renderWithRouter(<Home />)
@@ -35,6 +45,17 @@ describe('Home page', () => {
     expect(screen.queryByText(/My Stats/)).not.toBeInTheDocument()
   })
 
+  it('shows FL panel for coach', () => {
+    mockUseAuth.mockReturnValue({
+      user:   { username: 'coach_user', roles: ['coach'], club: 'FC Demo' },
+      logout: vi.fn(),
+    })
+    renderWithRouter(<Home />)
+
+    expect(screen.getByText('Federated Learning')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Start round/i })).toBeInTheDocument()
+  })
+
   it('shows player badge and My Stats card for player user', () => {
     mockUseAuth.mockReturnValue({
       user:   { username: 'marian', roles: ['player'], sub: 'player-uuid-123' },
@@ -46,10 +67,10 @@ describe('Home page', () => {
     expect(screen.getByText(/My Stats/)).toBeInTheDocument()
     expect(screen.queryByText(/User Management/)).not.toBeInTheDocument()
     expect(screen.queryByText(/^Players$/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Federated Learning')).not.toBeInTheDocument()
   })
 
   it('My Stats card navigates to /players/<sub>/biometrics', async () => {
-    mockNavigate.mockReset()
     mockUseAuth.mockReturnValue({
       user:   { username: 'marian', roles: ['player'], sub: 'player-uuid-123' },
       logout: vi.fn(),
@@ -71,6 +92,7 @@ describe('Home page', () => {
     expect(screen.getByText(/User Management/)).toBeInTheDocument()
     expect(screen.queryByText(/^Players$/)).not.toBeInTheDocument()
     expect(screen.queryByText(/My Stats/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Federated Learning')).not.toBeInTheDocument()
   })
 
   it('prioritizes admin role when user has multiple roles', () => {
@@ -82,5 +104,15 @@ describe('Home page', () => {
 
     expect(screen.getByText('Admin')).toBeInTheDocument()
     expect(screen.getByText(/User Management/)).toBeInTheDocument()
+  })
+
+  it('shows no club assigned when coach has no club', () => {
+    mockUseAuth.mockReturnValue({
+      user:   { username: 'coach_user', roles: ['coach'], club: null },
+      logout: vi.fn(),
+    })
+    renderWithRouter(<Home />)
+
+    expect(screen.getByText(/No club assigned/)).toBeInTheDocument()
   })
 })

@@ -160,10 +160,7 @@ export default function PlayersList() {
 
   if (isPlayer) return null
 
-  const sport  = localStorage.getItem('selected_sport') || 'football'
-  const accent = sport === 'marathon'
-    ? 'from-orange-950 via-orange-900 to-red-800'
-    : 'from-emerald-950 via-emerald-900 to-green-800'
+  const accent = 'from-emerald-950 via-emerald-900 to-green-800'
 
   // Admin: group by club
   const clubMap = {}

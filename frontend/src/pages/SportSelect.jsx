@@ -18,22 +18,6 @@ const SPORTS = [
       { top: '80%', left: '0', width: '100%', opacity: 0.08 },
     ],
   },
-  {
-    key: 'marathon',
-    label: 'Marathon',
-    subtitle: 'Endurance metrics · Pace prediction · Race readiness',
-    emoji: '🏃',
-    bg: 'from-orange-950 via-orange-900 to-red-800',
-    accent: 'text-orange-400',
-    border: 'border-orange-500',
-    btn: 'bg-orange-500 hover:bg-orange-400',
-    dots: ['top-16 right-12', 'top-40 left-20', 'bottom-24 right-20', 'bottom-8 left-16', 'top-1/2 right-8'],
-    lines: [
-      { top: '15%', left: '0', width: '60%', opacity: 0.1 },
-      { top: '45%', left: '20%', width: '80%', opacity: 0.07 },
-      { top: '75%', left: '0', width: '70%', opacity: 0.1 },
-    ],
-  },
 ]
 
 export default function SportSelect() {

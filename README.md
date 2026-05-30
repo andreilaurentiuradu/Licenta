@@ -594,7 +594,7 @@ User identity is owned by Keycloak — no users table in the application databas
 | `/players/:id/recommendations` | coach / own player | AI-generated personalised recommendations |
 
 **UI highlights:**
-- Per-sport colour theme: emerald green (Football) · orange-red (Marathon)
+- Sport colour theme: emerald green
 - Glassmorphism form cards on dark gradient backgrounds
 - Recharts time-series visualisations (line, bar, stacked bar) on all metric pages
 - Date range picker in player layout — persisted as URL search params

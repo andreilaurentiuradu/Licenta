@@ -45,12 +45,12 @@ describe('Register page', () => {
     expect(roleValues).not.toContain('admin')
   })
 
-  it('sport dropdown contains football and marathon', () => {
+  it('sport dropdown contains football', () => {
     renderWithRouter(<Register />)
     const sportOptions = screen.getByLabelText(/Sport/i).querySelectorAll('option')
     const sportValues  = [...sportOptions].map((o) => o.value)
     expect(sportValues).toContain('football')
-    expect(sportValues).toContain('marathon')
+    expect(sportValues).not.toContain('marathon')
   })
 
   it('rejects submission when passwords do not match', async () => {

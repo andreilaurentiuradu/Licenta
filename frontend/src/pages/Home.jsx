@@ -6,7 +6,6 @@ import toast from 'react-hot-toast'
 
 const THEMES = {
   football: { bg: 'from-emerald-950 via-emerald-900 to-green-800', accent: '#34d399', label: '⚽ Football' },
-  marathon: { bg: 'from-orange-950 via-orange-900 to-red-800',     accent: '#fb923c', label: '🏃 Marathon' },
 }
 
 const DOTS = [

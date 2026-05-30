@@ -24,10 +24,7 @@ export default function PlayerLayout() {
 
   const role      = pickRole(user?.roles)
   const isPlayer  = role === 'player'
-  const sport     = localStorage.getItem('selected_sport') || 'football'
-  const accent    = sport === 'marathon'
-    ? 'from-orange-950 via-orange-900 to-red-800'
-    : 'from-emerald-950 via-emerald-900 to-green-800'
+  const accent    = 'from-emerald-950 via-emerald-900 to-green-800'
 
   const fromDate = params.get('from') || ''
   const toDate   = params.get('to')   || ''

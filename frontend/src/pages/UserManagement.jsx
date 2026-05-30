@@ -5,7 +5,6 @@ import { adminCreateUser } from '../api/auth'
 
 const THEMES = {
   football: { bg: 'from-emerald-950 via-emerald-900 to-green-800', accent: '#34d399', ring: 'focus:ring-emerald-500', btn: 'bg-emerald-500 hover:bg-emerald-400' },
-  marathon: { bg: 'from-orange-950 via-orange-900 to-red-800',     accent: '#fb923c', ring: 'focus:ring-orange-500', btn: 'bg-orange-500 hover:bg-orange-400' },
 }
 
 const DOTS = [

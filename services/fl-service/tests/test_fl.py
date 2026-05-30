@@ -62,6 +62,28 @@ class TestInternalTrigger:
         assert data["club"] == "TestClub"
 
 
+class TestInternalRisk:
+
+    def test_returns_risk_dict(self, client, mocker):
+        mocker.patch(
+            "fl.features.predict_injury_risk",
+            return_value={"risk": "low", "probability": 0.12},
+        )
+        resp = client.get("/internal/risk/some-uid")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["risk"] == "low"
+        assert data["probability"] == 0.12
+
+    def test_falls_back_on_error(self, client, mocker):
+        mocker.patch("fl.features.predict_injury_risk", side_effect=Exception("no model"))
+        resp = client.get("/internal/risk/some-uid")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["risk"] == "low"
+        assert data["probability"] == 0.0
+
+
 class TestFlTrain:
 
     def test_requires_auth(self, client):
@@ -93,3 +115,68 @@ class TestFlTrain:
 
         resp = client.post("/api/fl/train", headers=auth_headers())
         assert resp.status_code == 200
+
+
+class TestRiskRanking:
+
+    def test_requires_auth(self, client):
+        resp = client.get("/api/fl/risk")
+        assert resp.status_code == 401
+
+    def test_player_forbidden(self, client, mock_player):
+        resp = client.get("/api/fl/risk", headers=auth_headers())
+        assert resp.status_code == 403
+
+    def test_coach_without_club_returns_empty(self, client, mocker):
+        mocker.patch("auth._verify_token", return_value={
+            "sub": "coach-no-club",
+            "preferred_username": "coach_noclub",
+            "realm_access": {"roles": ["coach"]},
+        })
+        mocker.patch("routes._fetch_user_club", return_value=None)
+        resp = client.get("/api/fl/risk", headers=auth_headers())
+        assert resp.status_code == 200
+        assert resp.get_json() == []
+
+    def test_returns_sorted_by_probability(self, client, mock_coach, app, mocker):
+        from models import PlayerProfile, db
+        mocker.patch("routes._fetch_user_club", return_value="TestClub")
+
+        with app.app_context():
+            db.session.add(PlayerProfile(user_id="p1", username="player1", club="TestClub"))
+            db.session.add(PlayerProfile(user_id="p2", username="player2", club="TestClub"))
+            db.session.commit()
+
+        mocker.patch("fl.features.predict_injury_risk", side_effect=[
+            {"risk": "low",  "probability": 0.10},
+            {"risk": "high", "probability": 0.90},
+        ])
+
+        resp = client.get("/api/fl/risk", headers=auth_headers())
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert len(data) == 2
+        assert data[0]["probability"] > data[1]["probability"]
+        assert data[0]["risk"] == "high"
+
+    def test_result_contains_required_fields(self, client, mock_coach, app, mocker):
+        from models import PlayerProfile, db
+        mocker.patch("routes._fetch_user_club", return_value="TestClub")
+
+        with app.app_context():
+            db.session.add(PlayerProfile(
+                user_id="p1", username="player1",
+                club="TestClub", position="Midfielder",
+            ))
+            db.session.commit()
+
+        mocker.patch("fl.features.predict_injury_risk",
+                     return_value={"risk": "medium", "probability": 0.45})
+
+        resp = client.get("/api/fl/risk", headers=auth_headers())
+        player = resp.get_json()[0]
+        assert "user_id" in player
+        assert "username" in player
+        assert "risk" in player
+        assert "probability" in player
+        assert player["risk"] in ("low", "medium", "high")

@@ -247,7 +247,7 @@ def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
 
-def seed_player(session, uid, p):
+def seed_player(session, uid, p, force_n_injuries=None):
     pos     = p["position"]
     profile = p.get("risk_profile", "medium")
 
@@ -307,7 +307,7 @@ def seed_player(session, uid, p):
             ))
         d += timedelta(days=random.randint(12, 16))
 
-    # Injuries — count driven by risk profile
+    # Injuries — count driven by risk profile (or overridden for FL class balance)
     injury_pool = [
         ("Hamstring strain", "mild",     "RICE + physiotherapy", 2,  False),
         ("Ankle sprain",     "moderate", "Rest + physiotherapy", 4,  False),
@@ -317,7 +317,7 @@ def seed_player(session, uid, p):
         ("Shin splints",     "mild",     "Rest + ice",           2,  False),
     ]
     lo, hi = cfg["injuries"]
-    n_inj = random.randint(lo, hi)
+    n_inj = force_n_injuries if force_n_injuries is not None else random.randint(lo, hi)
     if n_inj > 0:
         for day_off in sorted(random.sample(range(5, 85), min(n_inj, 80))):
             inj_date = start + timedelta(days=day_off)
@@ -378,10 +378,27 @@ def main():
     Session = sessionmaker(bind=engine)
     session = Session()
 
+    # Group players by club so we can guarantee FL class balance:
+    # FL needs both class 0 (no injuries) and class 1 (has injuries) per club.
+    # Force the first player in each club to have 0 injuries and
+    # the second to have at least 1, regardless of risk profile.
+    clubs_order = {}
+    for p in PLAYERS:
+        clubs_order.setdefault(p["club"], []).append(p)
+
     for p in PLAYERS:
         uid = uid_map.get(p["username"])
-        if uid:
-            seed_player(session, uid, p)
+        if not uid:
+            continue
+        club_players = clubs_order[p["club"]]
+        idx = club_players.index(p)
+        if idx == 0:
+            force = 0        # first player: no injuries (class 0)
+        elif idx == 1:
+            force = 1        # second player: at least 1 injury (class 1)
+        else:
+            force = None     # rest: driven by risk profile
+        seed_player(session, uid, p, force_n_injuries=force)
 
     session.close()
 

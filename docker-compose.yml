@@ -98,6 +98,7 @@ services:
       KEYCLOAK_URL:        http://keycloak:8080
       KEYCLOAK_REALM:      lawranalyzer
       GROQ_API_KEY:        ${GROQ_API_KEY:-}
+      FL_SERVICE_URL:      http://fl-service:5003
     deploy:
       replicas: 1
       restart_policy: {condition: on-failure, delay: 5s}

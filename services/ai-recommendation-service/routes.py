@@ -1,7 +1,9 @@
 import json
 import logging
+import os
 from datetime import date, datetime, timezone, timedelta
 
+import requests as req
 from flask import Blueprint, request, jsonify, current_app, g
 from sqlalchemy import func
 
@@ -10,6 +12,19 @@ from auth import require_auth
 
 ai_bp = Blueprint("ai", __name__)
 log   = logging.getLogger(__name__)
+
+_FL_SERVICE = os.environ.get("FL_SERVICE_URL", "http://fl-service:5003")
+
+
+def _fetch_fl_risk(user_id: str) -> dict:
+    """Fetch FL model injury risk for a player from fl-service (internal endpoint)."""
+    try:
+        resp = req.get(f"{_FL_SERVICE}/internal/risk/{user_id}", timeout=5)
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception as exc:
+        log.debug("[ai] FL risk fetch failed for %s: %s", user_id, exc)
+    return {"risk": "low", "probability": 0.0}
 
 
 def _can_access(target_user_id: str) -> bool:
@@ -79,7 +94,6 @@ def _collect_player_context(user_id: str) -> dict:
 _SYSTEM_PROMPT = """You are a professional sports performance analyst and physiotherapist.
 Analyse the player metrics provided and return a JSON object with this exact structure:
 {
-  "injury_risk": "low" | "medium" | "high",
   "recommendations": [
     {
       "category": string,
@@ -92,6 +106,7 @@ Rules:
 - Return 3 to 4 recommendations.
 - Categories must be one of: Injury Prevention, Training Load, Wellness, Nutrition, Recovery.
 - Each recommendation must be specific to the player's data — not generic advice.
+- The injury risk level is provided to you — tailor the urgency of recommendations accordingly.
 - The "text" field must be 1-2 concise, actionable sentences.
 - Return only valid JSON — no markdown, no extra keys."""
 
@@ -112,9 +127,11 @@ def _call_openai(ctx: dict) -> dict | None:
             f"  - {i['type']} ({i['severity']})" for i in ctx["recent_injuries"]
         ) or "  None"
 
+        fl_risk = ctx.get("fl_risk", {})
         user_msg = f"""Player data:
 Position: {ctx['position']}
 Birth year: {ctx['birth_year'] or 'Unknown'}
+Injury risk (Federated Learning model): {fl_risk.get('risk', 'unknown').upper()} ({fl_risk.get('probability', 0) * 100:.0f}% probability)
 
 Wellness — last 30 days average:
   Sleep: {ctx['wellness']['avg_sleep_hours']}h  Quality: {ctx['wellness']['avg_sleep_quality']}/10
@@ -178,12 +195,18 @@ def get_recommendations(user_id):
     if not _can_access(user_id):
         return jsonify({"error": "Forbidden"}), 403
 
+    # FL model is the authoritative source for injury risk
+    fl_risk = _fetch_fl_risk(user_id)
+
     ctx = _collect_player_context(user_id)
-    ai  = _call_openai(ctx)
+    ctx["fl_risk"] = fl_risk
+
+    ai = _call_openai(ctx)
 
     if ai:
         payload = {
-            "injury_risk":     ai.get("injury_risk", "low"),
+            "injury_risk":     fl_risk["risk"],          # FL model — not LLM's guess
+            "fl_probability":  fl_risk["probability"],
             "last_updated":    datetime.now(timezone.utc).isoformat(),
             "recommendations": ai.get("recommendations", []),
             "ai_generated":    True,
@@ -192,8 +215,10 @@ def get_recommendations(user_id):
     else:
         payload = {
             **_DEFAULT_RECOMMENDATIONS,
-            "last_updated": datetime.now(timezone.utc).isoformat(),
-            "ai_generated": False,
+            "injury_risk":    fl_risk["risk"],
+            "fl_probability": fl_risk["probability"],
+            "last_updated":   datetime.now(timezone.utc).isoformat(),
+            "ai_generated":   False,
             "note": "AI key not configured — showing default recommendations. Set GROQ_API_KEY to enable personalised insights.",
         }
 

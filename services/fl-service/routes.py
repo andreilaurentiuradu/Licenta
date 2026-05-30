@@ -205,6 +205,17 @@ def club_risk_ranking():
     return jsonify(results)
 
 
+@internal_bp.get("/risk/<user_id>")
+def internal_risk(user_id):
+    """Return FL injury risk for a single player (internal, no auth)."""
+    from fl.features import predict_injury_risk
+    try:
+        return jsonify(predict_injury_risk(user_id))
+    except Exception as exc:
+        log.warning("[FL] internal_risk error for %s: %s", user_id, exc)
+        return jsonify({"risk": "low", "probability": 0.0})
+
+
 @internal_bp.post("/trigger")
 def internal_trigger():
     """

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { triggerFLRound, getFlStatus } from '../api/fl'
+import { triggerFLRound, getFlStatus, getRiskRanking } from '../api/fl'
 import toast from 'react-hot-toast'
 
 const THEMES = {
@@ -150,6 +150,85 @@ function FLPanel({ club }) {
   )
 }
 
+const RISK_CONFIG = {
+  high:   { label: 'High',   bg: 'bg-red-500/15',    border: 'border-red-500/30',    text: 'text-red-400',    dot: 'bg-red-400' },
+  medium: { label: 'Medium', bg: 'bg-amber-500/15',  border: 'border-amber-500/30',  text: 'text-amber-400',  dot: 'bg-amber-400' },
+  low:    { label: 'Low',    bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', dot: 'bg-emerald-400' },
+}
+
+function RiskPanel({ navigate }) {
+  const [players, setPlayers] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getRiskRanking()
+      .then(r => setPlayers(r.data))
+      .catch(() => setPlayers([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const high   = players?.filter(p => p.risk === 'high')   ?? []
+  const medium = players?.filter(p => p.risk === 'medium') ?? []
+
+  if (loading) return (
+    <div className="mb-6 p-5 rounded-2xl bg-white/8 border border-white/10">
+      <p className="text-xs text-white/30">Loading risk data…</p>
+    </div>
+  )
+
+  if (!players?.length) return null
+
+  return (
+    <div className="mb-6 rounded-2xl bg-white/8 border border-white/10 overflow-hidden">
+      {/* Header */}
+      <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-white">Injury Risk Ranking</p>
+          <p className="text-xs text-white/40 mt-0.5">{players.length} players · sorted by risk</p>
+        </div>
+        {high.length > 0 && (
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-500/20 text-red-400">
+            {high.length} high risk
+          </span>
+        )}
+      </div>
+
+      {/* Alert banner for high-risk players */}
+      {high.length > 0 && (
+        <div className="mx-5 mb-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-2">
+          <span className="text-red-400 text-sm mt-0.5">⚠</span>
+          <p className="text-xs text-red-300 leading-relaxed">
+            <span className="font-semibold">{high.map(p => p.username).join(', ')}</span>
+            {high.length === 1 ? ' requires' : ' require'} immediate attention — injury risk is high.
+          </p>
+        </div>
+      )}
+
+      {/* Player list */}
+      <div className="px-3 pb-3 space-y-1.5">
+        {players.map((p, i) => {
+          const cfg = RISK_CONFIG[p.risk] ?? RISK_CONFIG.low
+          return (
+            <button
+              key={p.user_id}
+              onClick={() => navigate(`/players/${p.user_id}/biometrics`)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border ${cfg.bg} ${cfg.border} hover:opacity-80 transition-opacity text-left`}
+            >
+              <span className="text-xs text-white/30 w-4 shrink-0">{i + 1}</span>
+              <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+              <span className="flex-1 text-sm font-medium text-white truncate">{p.username}</span>
+              <span className="text-xs text-white/40 shrink-0">{p.position ?? '—'}</span>
+              <span className={`text-xs font-semibold shrink-0 ${cfg.text}`}>
+                {cfg.label} · {(p.probability * 100).toFixed(0)}%
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function Home() {
   const { user, logout } = useAuth()
   const navigate         = useNavigate()
@@ -279,6 +358,9 @@ export default function Home() {
 
           {/* FL panel — coach only */}
           {isCoach && <FLPanel club={club} />}
+
+          {/* Risk ranking — coach only */}
+          {isCoach && <RiskPanel navigate={navigate} />}
 
           {/* Sign out */}
           <div className="text-center">

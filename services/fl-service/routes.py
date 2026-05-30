@@ -165,6 +165,46 @@ def fl_status():
     })
 
 
+@fl_bp.get("/risk")
+@require_auth(roles=["coach", "admin"])
+def club_risk_ranking():
+    """
+    Return injury risk scores for all players in the coach's club,
+    sorted by probability descending. Admins can pass ?club=<name>.
+    """
+    from models import PlayerProfile
+    from fl.features import predict_injury_risk
+
+    claims   = g.claims
+    roles    = claims.get("realm_access", {}).get("roles", [])
+    is_admin = "admin" in roles
+
+    if is_admin:
+        club = request.args.get("club")
+        profiles = (PlayerProfile.query.filter_by(club=club).all()
+                    if club else PlayerProfile.query.all())
+    else:
+        club = claims.get("club") or _fetch_user_club(claims.get("sub", ""))
+        if not club:
+            return jsonify([])
+        profiles = PlayerProfile.query.filter_by(club=club).all()
+
+    results = []
+    for p in profiles:
+        risk_data = predict_injury_risk(p.user_id)
+        results.append({
+            "user_id":     p.user_id,
+            "username":    p.username,
+            "club":        p.club,
+            "position":    p.position,
+            "risk":        risk_data["risk"],
+            "probability": risk_data["probability"],
+        })
+
+    results.sort(key=lambda x: x["probability"], reverse=True)
+    return jsonify(results)
+
+
 @internal_bp.post("/trigger")
 def internal_trigger():
     """

@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import Home from '../Home'
 import { renderWithRouter } from '../../test/renderWithRouter'
+import * as flApi from '../../api/fl'
 
 const mockUseAuth  = vi.fn()
 const mockNavigate = vi.fn()
@@ -18,15 +19,18 @@ vi.mock('react-router-dom', async (orig) => {
 })
 
 vi.mock('../../api/fl', () => ({
-  triggerFLRound: vi.fn().mockResolvedValue({ data: { trained: false, warning: null } }),
-  getFlStatus:    vi.fn().mockResolvedValue({ data: { ready: false } }),
-  getRiskRanking: vi.fn().mockResolvedValue({ data: [] }),
+  triggerFLRound: vi.fn(),
+  getFlStatus:    vi.fn(),
+  getRiskRanking: vi.fn(),
 }))
 
 
 describe('Home page', () => {
   beforeEach(() => {
     mockNavigate.mockReset()
+    flApi.triggerFLRound.mockResolvedValue({ data: { trained: false, warning: null } })
+    flApi.getFlStatus.mockResolvedValue({ data: { ready: false } })
+    flApi.getRiskRanking.mockResolvedValue({ data: [] })
   })
 
   it('shows coach badge and Players card for coach user', () => {
@@ -81,7 +85,7 @@ describe('Home page', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/players/player-uuid-123/biometrics')
   })
 
-  it('shows admin badge with All Users and Create User cards', () => {
+  it('shows admin badge with All Users, Create User and View Feedback cards', () => {
     mockUseAuth.mockReturnValue({
       user:   { username: 'admin_user', roles: ['admin'] },
       logout: vi.fn(),
@@ -91,9 +95,22 @@ describe('Home page', () => {
     expect(screen.getByText('Admin')).toBeInTheDocument()
     expect(screen.getByText(/All Users/)).toBeInTheDocument()
     expect(screen.getByText(/Create User/)).toBeInTheDocument()
+    expect(screen.getByText(/View Feedback/)).toBeInTheDocument()
+    expect(screen.queryByText(/^Feedback$/)).not.toBeInTheDocument()
     expect(screen.queryByText(/^Players$/)).not.toBeInTheDocument()
     expect(screen.queryByText(/My Stats/)).not.toBeInTheDocument()
     expect(screen.queryByText('Federated Learning')).not.toBeInTheDocument()
+  })
+
+  it('View Feedback card navigates to /admin/feedback', async () => {
+    mockUseAuth.mockReturnValue({
+      user:   { username: 'admin_user', roles: ['admin'] },
+      logout: vi.fn(),
+    })
+    renderWithRouter(<Home />)
+
+    await userEvent.click(screen.getByText(/View Feedback/).closest('button'))
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/feedback')
   })
 
   it('prioritizes admin role when user has multiple roles', () => {

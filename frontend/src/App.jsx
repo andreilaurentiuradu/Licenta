@@ -9,6 +9,7 @@ import Feedback         from './pages/Feedback'
 import Profile          from './pages/Profile'
 import AdminUsers       from './pages/AdminUsers'
 import UserManagement   from './pages/UserManagement'
+import AdminFeedback    from './pages/AdminFeedback'
 import PlayersList      from './pages/PlayersList'
 import PlayerLayout     from './pages/PlayerLayout'
 import PlayerBiometrics      from './pages/PlayerBiometrics'
@@ -66,6 +67,10 @@ export default function App() {
         <Route
           path="/admin/create-user"
           element={<AdminRoute><UserManagement /></AdminRoute>}
+        />
+        <Route
+          path="/admin/feedback"
+          element={<AdminRoute><AdminFeedback /></AdminRoute>}
         />
 
         {/* Players — list */}

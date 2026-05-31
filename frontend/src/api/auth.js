@@ -34,3 +34,6 @@ export const deleteUser  = (id)     => api.delete(`/auth/users/${id}`)
 /** Submit feedback (ratings + optional message). */
 export const submitFeedback = (ratings, message) =>
   api.post('/feedback/', { ratings, message })
+
+/** Admin — list all feedback submissions. */
+export const listFeedback = () => api.get('/feedback/')

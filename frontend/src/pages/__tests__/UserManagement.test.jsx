@@ -19,7 +19,7 @@ vi.mock('react-router-dom', async (orig) => {
 })
 
 
-describe('UserManagement page', () => {
+describe('CreateUser page (UserManagement)', () => {
   beforeEach(() => {
     mockCreate.mockReset()
     mockNavigate.mockReset()

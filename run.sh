@@ -35,6 +35,10 @@ Usage: ./run.sh <command> [args]
     seed                 Create demo accounts (admin / coach / 3 players)
                          and populate 90 days of mock metrics in the DB
     db                   Open a psql shell in the running Postgres container
+    risk [high|low|reset] [player]
+                         FL demo — push a player to high/low injury risk, or
+                         reset to realistic seed data (default: high player1).
+                         e.g. ./run.sh risk low player4   ./run.sh risk reset player1
 
   TESTING
     test [scope]         Run tests: auth|player|fl|ai|feedback|frontend|all (default: all)
@@ -184,6 +188,22 @@ run_seed() {
     bash -c "pip install --no-cache-dir -q -r requirements.txt && python seed.py"
 }
 
+run_demo_risk() {
+  MODE="${1:-high}"
+  PLAYER="${2:-player1}"
+  echo "[risk] Pushing '${PLAYER}' to ${MODE} injury risk..."
+  WIN_ROOT="$(cd "$ROOT" && pwd -W 2>/dev/null || echo "$ROOT")"
+  MSYS_NO_PATHCONV=1 docker run --rm \
+    --network "${STACK}_default" \
+    -v "${WIN_ROOT}/scripts:/app" \
+    -w /app \
+    -e DATABASE_URL="postgresql://sa_user:sa_pass@postgres:5432/lawranalyzer" \
+    -e FL_SERVICE_URL="http://fl-service:5003" \
+    python:3.11-slim \
+    bash -c "pip install --no-cache-dir -q -r requirements.txt && python demo_risk.py ${MODE} --player ${PLAYER}"
+}
+
+
 open_db_shell() {
   echo "[db] Connecting to Postgres (lawranalyzer)..."
   CONTAINER=$(docker ps --filter "name=${STACK}_postgres" --format "{{.ID}}" | head -1)
@@ -283,6 +303,9 @@ case "$CMD" in
     ;;
   db)
     open_db_shell
+    ;;
+  risk)
+    run_demo_risk "${2:-high}" "${3:-player1}"
     ;;
   test)
     SCOPE="${2:-all}"

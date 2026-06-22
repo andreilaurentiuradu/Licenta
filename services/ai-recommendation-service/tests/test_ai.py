@@ -98,16 +98,28 @@ class TestActions:
         assert body["replacement"]["category"] == rec["category"]
         assert body["replacement"]["text"] != rec["text"]
         assert body["replacement"]["status"] == "pending"
+        assert body["replacement"]["from_refusal"] is True
 
-    def test_generate_creates_new_set(self, client, mock_player):
-        first = client.get(f"/api/players/{PLAYER_UID}/recommendations", headers=auth_headers()).get_json()
-        resp  = client.post(f"/api/players/{PLAYER_UID}/recommendations/generate", headers=auth_headers())
-        assert resp.status_code == 200
-        fresh = resp.get_json()
-        assert len(fresh["active"]) >= 1
-        old_ids = {r["id"] for r in first["active"]}
-        new_ids = {r["id"] for r in fresh["active"]}
-        assert old_ids.isdisjoint(new_ids)
+    def test_generate_rerolls_only_refused(self, client, mock_player):
+        url = f"/api/players/{PLAYER_UID}/recommendations"
+        first = client.get(url, headers=auth_headers()).get_json()["active"]
+
+        # nothing refused yet -> generate is a no-op
+        r0 = client.post(f"{url}/generate", headers=auth_headers()).get_json()
+        assert r0["regenerated"] == 0
+        assert sorted(x["id"] for x in r0["active"]) == sorted(x["id"] for x in first)
+
+        # refuse the first -> a from_refusal replacement appears
+        refused_id = first[0]["id"]
+        repl = client.post(f"{url}/{refused_id}/refuse", headers=auth_headers()).get_json()["replacement"]
+        kept_ids = {first[1]["id"], first[2]["id"]}
+
+        # generate -> only the refused replacement is re-rolled; the rest stays
+        gen = client.post(f"{url}/generate", headers=auth_headers()).get_json()
+        assert gen["regenerated"] == 1
+        active_ids = {x["id"] for x in gen["active"]}
+        assert kept_ids <= active_ids        # untouched recommendations preserved
+        assert repl["id"] not in active_ids  # the refused replacement was re-rolled away
 
     def test_action_requires_access(self, client, mock_player):
         resp = client.post(f"/api/players/{PLAYER2_UID}/recommendations/1/accept", headers=auth_headers())

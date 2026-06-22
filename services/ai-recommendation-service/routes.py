@@ -320,17 +320,28 @@ def get_recommendations(user_id):
 @ai_bp.post("/<user_id>/recommendations/generate")
 @require_auth()
 def generate_recommendations(user_id):
-    """Force a fresh set on demand. Archives current active ones, keeps history."""
+    """Regenerate ONLY the recommendations that came from a refusal — for each,
+    re-roll a fresh same-category alternative. Accepted and original (never-refused)
+    recommendations are left untouched."""
     if not _can_access(user_id):
         return jsonify({"error": "Forbidden"}), 403
 
     fl_risk = _fetch_fl_risk(user_id)
-    for r in _active_query(user_id).all():
+    targets = Recommendation.query.filter_by(
+        user_id=user_id, status="pending", from_refusal=True).all()
+
+    for r in targets:
         r.status = "refused"
-    for r in _generate_set(user_id, fl_risk):
-        db.session.add(Recommendation(user_id=user_id, status="pending", **r))
+        avoid = [x.text for x in Recommendation.query.filter_by(
+            user_id=user_id, category=r.category).all()]
+        new = _generate_one(user_id, r.category, avoid, fl_risk)
+        db.session.add(Recommendation(user_id=user_id, status="pending",
+                                      from_refusal=True, **new))
     db.session.commit()
-    return jsonify(_serialize(user_id, fl_risk))
+
+    payload = _serialize(user_id, fl_risk)
+    payload["regenerated"] = len(targets)
+    return jsonify(payload)
 
 
 @ai_bp.post("/<user_id>/recommendations/<int:rid>/accept")
@@ -368,7 +379,8 @@ def refuse_recommendation(user_id, rid):
         user_id=user_id, category=rec.category).all()]
     fl_risk = _fetch_fl_risk(user_id)
     new = _generate_one(user_id, rec.category, avoid, fl_risk)
-    replacement = Recommendation(user_id=user_id, status="pending", **new)
+    replacement = Recommendation(user_id=user_id, status="pending",
+                                 from_refusal=True, **new)
     db.session.add(replacement)
     db.session.commit()
 

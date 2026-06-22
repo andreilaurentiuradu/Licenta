@@ -118,19 +118,22 @@ class Recommendation(db.Model):
     text       = db.Column(db.Text)
     # pending | accepted | refused | completed
     status     = db.Column(db.String(16), default="pending", index=True)
+    # True dacă recomandarea a apărut ca înlocuitor după un refuz
+    from_refusal = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
         return {
-            "id":         self.id,
-            "category":   self.category,
-            "priority":   self.priority,
-            "text":       self.text,
-            "status":     self.status,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "id":           self.id,
+            "category":     self.category,
+            "priority":     self.priority,
+            "text":         self.text,
+            "status":       self.status,
+            "from_refusal": self.from_refusal,
+            "created_at":   self.created_at.isoformat() if self.created_at else None,
+            "updated_at":   self.updated_at.isoformat() if self.updated_at else None,
         }
 
 

@@ -79,9 +79,13 @@ export default function PlayerRecommendations() {
     try {
       const { data: fresh } = await generateRecommendations(id)
       setData(fresh)
-      toast.success('New recommendations generated')
+      if (fresh.regenerated === 0) {
+        toast('Nothing to regenerate — refuse a recommendation first.', { icon: 'ℹ️' })
+      } else {
+        toast.success('Regenerated the refused recommendations')
+      }
     } catch {
-      toast.error('Failed to generate')
+      toast.error('Failed to regenerate')
     } finally { setGenerating(false) }
   }
 
@@ -120,9 +124,10 @@ export default function PlayerRecommendations() {
         <button
           onClick={generate}
           disabled={generating}
+          title="Re-rolls only the recommendations you refused"
           className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-xs text-white hover:bg-white/20 transition-all disabled:opacity-50"
         >
-          {generating ? 'Generating…' : '↻ Generate new'}
+          {generating ? 'Regenerating…' : '↻ Regenerate refused'}
         </button>
       </div>
 
@@ -167,7 +172,7 @@ export default function PlayerRecommendations() {
         </div>
       ) : (
         <p className="text-white/30 text-sm text-center py-8">
-          No active recommendations. Use “Generate new” to get fresh ones.
+          No active recommendations.
         </p>
       )}
 

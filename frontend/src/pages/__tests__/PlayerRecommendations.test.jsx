@@ -79,7 +79,7 @@ describe('PlayerRecommendations page', () => {
     renderWithRouter(<PlayerRecommendations />)
     await waitFor(() => screen.getByText('Do warmups.'))
 
-    await userEvent.click(screen.getAllByRole('button', { name: /Refuse/i })[0])
+    await userEvent.click(screen.getAllByRole('button', { name: /Refuse$/i })[0])
     await waitFor(() => {
       expect(api.refuseRecommendation).toHaveBeenCalledWith('player-uid-1', 1)
       expect(screen.getByText('New advice.')).toBeInTheDocument()
@@ -87,14 +87,17 @@ describe('PlayerRecommendations page', () => {
     })
   })
 
-  it('generate fetches a fresh set of recommendations', async () => {
+  it('regenerate re-rolls the refused recommendations', async () => {
     api.generateRecommendations.mockResolvedValue({
-      data: { ...DATA, active: [{ id: 9, category: 'Recovery', priority: 'medium', text: 'Rest day.', status: 'pending' }] },
+      data: {
+        ...DATA, regenerated: 1,
+        active: [{ id: 9, category: 'Recovery', priority: 'medium', text: 'Rest day.', status: 'pending' }],
+      },
     })
     renderWithRouter(<PlayerRecommendations />)
     await waitFor(() => screen.getByText('Do warmups.'))
 
-    await userEvent.click(screen.getByRole('button', { name: /Generate new/i }))
+    await userEvent.click(screen.getByRole('button', { name: /Regenerate refused/i }))
     await waitFor(() => {
       expect(api.generateRecommendations).toHaveBeenCalledWith('player-uid-1')
       expect(screen.getByText('Rest day.')).toBeInTheDocument()

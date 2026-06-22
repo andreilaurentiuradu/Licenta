@@ -170,13 +170,13 @@ player-service  ──POST /internal/trigger──►  fl-service
 ├── gateway/
 │   ├── Dockerfile
 │   └── nginx.conf                  # Path-based reverse proxy to all services
-├── backend/
-│   ├── seed.py                     # Populate mock player data (used by run.sh seed)
-│   ├── requirements.txt
-│   └── models/
-│       ├── data.csv                # Dataset copy for notebooks
-│       ├── prediction-of-injury-with-logisticregression.ipynb
-│       └── federated-learning-injury-prediction.ipynb
+├── scripts/
+│   ├── seed.py                     # Demo accounts + 90 days of mock data (run.sh seed)
+│   ├── demo_risk.py                # FL demo: force a player high/low risk or reset (run.sh risk)
+│   └── requirements.txt
+├── notebooks/
+│   ├── prediction-of-injury-with-logisticregression.ipynb
+│   └── federated-learning-injury-prediction.ipynb
 ├── services/
 │   ├── auth-service/               # Keycloak integration (port 5001)
 │   │   ├── app.py
@@ -211,8 +211,8 @@ player-service  ──POST /internal/trigger──►  fl-service
 │   ├── ai-recommendation-service/                 # AI recommendations via Groq (port 5004)
 │   │   ├── app.py
 │   │   ├── auth.py
-│   │   ├── models.py
-│   │   ├── routes.py               # GET /api/players/<id>/recommendations
+│   │   ├── models.py               # + Recommendation (status: pending/accepted/refused/completed)
+│   │   ├── routes.py               # /recommendations: get, generate, accept, refuse, complete
 │   │   ├── requirements.txt
 │   │   └── Dockerfile
 │   └── feedback-service/           # Feedback submissions (port 5005)
@@ -228,9 +228,11 @@ player-service  ──POST /internal/trigger──►  fl-service
     └── src/
         ├── api/
         │   ├── axios.js            # Axios instance: auth header + token refresh
-        │   ├── auth.js             # login · register · adminCreateUser · getMe
-        │   ├── players.js          # Player metrics API wrappers
-        │   └── fl.js               # getFlStatus()
+        │   ├── auth.js             # login · register · adminCreateUser · getMe · listUsers
+        │   ├── players.js          # Player metrics + recommendation actions (accept/refuse/complete)
+        │   └── fl.js               # getFlStatus · triggerFLRound · getRiskRanking
+        ├── components/
+        │   └── HistoryAccordion.jsx  # Collapsible time-bucketed history (Today/This week/Month/...)
         ├── contexts/
         │   └── AuthContext.jsx     # JWT parsing, token storage, getMe fallback
         ├── pages/
@@ -289,8 +291,9 @@ player-service  ──POST /internal/trigger──►  fl-service
 ./run.sh logs ai-recommendation-service          # tail AI service logs
 ./run.sh logs feedback-service    # tail feedback-service logs
 ./run.sh logs frontend            # tail frontend logs
-./run.sh test                     # run frontend unit tests (vitest) in Docker
+./run.sh test [scope]             # run tests (auth|player|fl|ai|feedback|frontend|all)
 ./run.sh seed                     # seed mock player data (idempotent)
+./run.sh risk high|low|reset [player]   # FL demo: force a player's risk high/low, or reset to seed data
 ./run.sh fl [clubs] [rounds]      # standalone FL simulation (default: 4 clubs, 10 rounds)
 ./run.sh notebook                 # start Jupyter server at http://localhost:8888
 ./run.sh db                       # open psql shell in the running Postgres container
@@ -407,6 +410,7 @@ The 4 clubs have distinct risk profiles — designed to make FedAvg aggregation 
      - Injury Prevention (high priority)
      - Training Load adjustment
      - Wellness / Recovery advice
+     - **Accept** / **Refuse** (→ a new one of the same category) / **Mark complete** (→ moves to the history list below). Recommendations are persisted — the LLM is not re-called on every visit; use **Generate new** for a fresh set.
 5. Add a new wellness entry (click **"+ Add entry"** in Wellness tab):
    - Fill in sleep hours, stress level, mood, calories, hydration → Save
    - FL trigger fires automatically in the background (player-service → fl-service)
@@ -451,6 +455,11 @@ The following sequence demonstrates the full Federated Learning flow:
 
 > Raw player data (wellness, training, physical metrics) never leaves the service.
 > Only model weights (LogisticRegression coefficients + intercept) are exchanged between clubs and the central FL server.
+
+> **Quick risk demo (no retraining needed):** `./run.sh risk high player1` writes metrics that push the
+> player's feature vector to a high-risk profile (coefficient-aware, so it always crosses the threshold);
+> `./run.sh risk low player1` does the opposite, and `./run.sh risk reset player1` restores realistic seed
+> data. The script prints the risk **before → after** and the UI reflects it on the next page load.
 
 ---
 
@@ -535,17 +544,23 @@ Privacy-by-design: raw player data never leaves the service. Only model weights 
 
 ### AI Recommendations (ai-recommendation-service)
 
+Recommendations are **persisted** in the `recommendations` table and are **not** regenerated on every page visit. The LLM is called only on the first-ever visit (to populate), on an explicit "Generate new" request, or when a recommendation is refused (one replacement). Each recommendation has a status: `pending`, `accepted`, `refused` or `completed`.
+
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/api/players/<id>/recommendations` | coach / own player | Generate personalised recommendations |
+| `GET` | `/api/players/<id>/recommendations` | coach / own player | Return stored active + completed recommendations (generates an initial set only when none exist) |
+| `POST` | `/api/players/<id>/recommendations/generate` | coach / own player | Force a fresh set (archives current active ones, keeps history) |
+| `POST` | `/api/players/<id>/recommendations/<rid>/accept` | coach / own player | Mark a recommendation as accepted |
+| `POST` | `/api/players/<id>/recommendations/<rid>/refuse` | coach / own player | Refuse it and return a replacement of the **same category** |
+| `POST` | `/api/players/<id>/recommendations/<rid>/complete` | coach / own player | Mark as complete → moves to the completed history |
 
-Flow:
-1. Fetches the player's FL injury risk score from `fl-service /internal/risk/<id>` — this is the authoritative risk source
+Generation flow:
+1. Fetches the player's FL injury risk score from `fl-service /internal/risk/<id>` — this is the authoritative risk source (returned on every call, never an LLM guess)
 2. Collects last 30 days of wellness + training + latest physical assessment
 3. Sends both to **Groq API** (`llama-3.1-8b-instant`) via OpenAI-compatible client
-4. Returns 3–4 prioritised recommendations (Injury Prevention, Training Load, Wellness, Nutrition, Recovery) with the FL risk score — not an LLM guess
+4. Stores 3–4 prioritised recommendations (Injury Prevention, Training Load, Wellness, Nutrition, Recovery)
 
-Falls back to static defaults if `GROQ_API_KEY` is not set. The FL risk score is always returned regardless.
+Falls back to a static recommendation pool if `GROQ_API_KEY` is not set (initial set and refuse replacements both use it). The FL risk score is always returned regardless.
 
 To enable: add `GROQ_API_KEY=<your_key>` to `.env` at the project root (automatically picked up by `run.sh`).
 
@@ -569,6 +584,7 @@ PostgreSQL 16 — data persists across restarts via named Docker volume `pg_data
 | `wellness_logs` | player, fl, ai | Daily nutrition macros, hydration, sleep, stress, mood |
 | `fl_global_models` | fl | Global model weights per FL round |
 | `fl_club_models` | fl | Per-club local model weights (latest) |
+| `recommendations` | ai | AI recommendations with status (pending/accepted/refused/completed) |
 | `feedback` | feedback | Star-rating feedback submissions |
 
 User identity is owned by Keycloak — no users table in the application database.
@@ -597,7 +613,9 @@ User identity is owned by Keycloak — no users table in the application databas
 - Sport colour theme: emerald green
 - Glassmorphism form cards on dark gradient backgrounds
 - Recharts time-series visualisations (line, bar, stacked bar) on all metric pages
-- Date range picker in player layout — persisted as URL search params
+- Date range picker in player layout — persisted as URL search params (still applies on top of the grouping below)
+- Player history (training / physical / wellness / injuries) grouped into collapsible time buckets: Today / This week / This month / Last 3 months / Older
+- Recommendations page: accept / refuse (→ a replacement of the same category) / mark complete, with a completed-history section below
 - Role-based home dashboard:
   - **Admin** → User Management card
   - **Coach** → Players card + FL Panel (train button, round/accuracy/clubs stats) + Injury Risk Ranking (sorted by FL probability, red alert for high-risk players)
@@ -614,19 +632,21 @@ Each microservice has its own pytest suite. The frontend uses vitest. All tests 
 | auth-service | `test_auth.py` | register validation, role enforcement, `/me`, admin create-user |
 | player-service | `test_players.py` | biometrics CRUD + RBAC, training, physical, wellness (nutrition_score), injuries |
 | fl-service | `test_fl.py` | status (no model / with model), internal trigger, train RBAC |
-| ai-recommendation-service | `test_ai.py` | RBAC, response structure, Groq fallback to defaults, mock AI call |
+| ai-recommendation-service | `test_ai.py` | RBAC, persisted recommendations (no re-generation), accept / refuse (same-category replacement) / complete, generate, Groq fallback |
 | feedback-service | `test_feedback.py` | submit validation, persistence, admin list |
 
-**Frontend (vitest + Testing Library)** — 42 tests across 8 files:
+**Frontend (vitest + Testing Library)** — 61 tests across 10 files:
 
 - `AuthContext.test.jsx` — token storage, login, logout, expired token
 - `Login.test.jsx` — form rendering, sport default/preserve, navigation
 - `Register.test.jsx` — field validation, password mismatch, role/sport dropdowns
 - `UserManagement.test.jsx` — admin create-user form, role dropdown
+- `AdminUsers.test.jsx` — user list, role filter, search, delete with confirmation
 - `Profile.test.jsx` — role badges, initials, Keycloak role filtering
 - `Feedback.test.jsx` — star rating aspects, form submission
 - `Home.test.jsx` — role-aware cards: admin → User Management, coach → Players, player → My Stats
 - `SportSelect.test.jsx` — sport card click, localStorage, navigation
+- `PlayerRecommendations.test.jsx` — render, accept, refuse (replacement), complete (history), generate
 
 ```bash
 ./run.sh test all        # all services + frontend

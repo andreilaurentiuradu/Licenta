@@ -5,6 +5,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts'
 import { getWellness, addWellness, deleteWellness } from '../api/players'
+import HistoryAccordion from '../components/HistoryAccordion'
 import toast from 'react-hot-toast'
 
 const inputCls = 'w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-white/30'
@@ -173,41 +174,43 @@ export default function PlayerWellness() {
         </form>
       )}
 
-      {logs.length > 0 && (
-        <div className="overflow-x-auto rounded-2xl border border-white/15">
-          <table className="w-full text-xs text-white/70">
-            <thead>
-              <tr className="border-b border-white/10 bg-white/5">
-                {['Date', 'Cal', 'P(g)', 'C(g)', 'F(g)', 'H2O ml', 'Sleep h', 'Qual.', 'Stress', 'Mood', ''].map((h) => (
-                  <th key={h} className="text-left px-3 py-3 font-medium text-white/50 whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((l) => (
-                <tr key={l.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                  <td className="px-3 py-3 whitespace-nowrap">{l.date}</td>
-                  <td className="px-3 py-3">{l.calories ?? '—'}</td>
-                  <td className="px-3 py-3">{l.protein_g ?? '—'}</td>
-                  <td className="px-3 py-3">{l.carbs_g ?? '—'}</td>
-                  <td className="px-3 py-3">{l.fat_g ?? '—'}</td>
-                  <td className="px-3 py-3">{l.hydration_ml ?? '—'}</td>
-                  <td className="px-3 py-3">{l.sleep_hours ?? '—'}</td>
-                  <td className="px-3 py-3">{l.sleep_quality ?? '—'}</td>
-                  <td className="px-3 py-3">{l.stress_level ?? '—'}</td>
-                  <td className="px-3 py-3">{l.mood_score ?? '—'}</td>
-                  <td className="px-3 py-3 text-right">
-                    <button onClick={() => handleDelete(l.id)} className="text-white/30 hover:text-red-400 transition-colors">✕</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {logs.length === 0 && !adding && (
-        <p className="text-white/30 text-sm text-center py-8">No wellness entries yet.</p>
+      {logs.length > 0 ? (
+        <HistoryAccordion entries={logs}>
+          {(rows) => (
+            <div className="overflow-x-auto rounded-xl border border-white/10">
+              <table className="w-full text-xs text-white/70">
+                <thead>
+                  <tr className="border-b border-white/10 bg-white/5">
+                    {['Date', 'Cal', 'P(g)', 'C(g)', 'F(g)', 'H2O ml', 'Sleep h', 'Qual.', 'Stress', 'Mood', ''].map((h) => (
+                      <th key={h} className="text-left px-3 py-3 font-medium text-white/50 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((l) => (
+                    <tr key={l.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <td className="px-3 py-3 whitespace-nowrap">{l.date}</td>
+                      <td className="px-3 py-3">{l.calories ?? '—'}</td>
+                      <td className="px-3 py-3">{l.protein_g ?? '—'}</td>
+                      <td className="px-3 py-3">{l.carbs_g ?? '—'}</td>
+                      <td className="px-3 py-3">{l.fat_g ?? '—'}</td>
+                      <td className="px-3 py-3">{l.hydration_ml ?? '—'}</td>
+                      <td className="px-3 py-3">{l.sleep_hours ?? '—'}</td>
+                      <td className="px-3 py-3">{l.sleep_quality ?? '—'}</td>
+                      <td className="px-3 py-3">{l.stress_level ?? '—'}</td>
+                      <td className="px-3 py-3">{l.mood_score ?? '—'}</td>
+                      <td className="px-3 py-3 text-right">
+                        <button onClick={() => handleDelete(l.id)} className="text-white/30 hover:text-red-400 transition-colors">✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </HistoryAccordion>
+      ) : (
+        !adding && <p className="text-white/30 text-sm text-center py-8">No wellness entries yet.</p>
       )}
     </div>
   )

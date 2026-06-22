@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { getInjuries, addInjury, deleteInjury } from '../api/players'
+import HistoryAccordion from '../components/HistoryAccordion'
 import toast from 'react-hot-toast'
 
 const inputCls = 'w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-white/30'
@@ -128,41 +129,43 @@ export default function PlayerInjuries() {
         </form>
       )}
 
-      {recs.length > 0 && (
-        <div className="space-y-3">
-          {recs.map((r) => (
-            <div key={r.id} className="p-4 rounded-2xl bg-white/10 border border-white/15">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-xs text-white/40">{r.date}</span>
-                    {r.injury_severity && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SEVERITY_COLOR[r.injury_severity] || 'bg-white/10 text-white/50'}`}>
-                        {r.injury_severity}
-                      </span>
-                    )}
-                    {r.recurrence && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-medium">recurrence</span>
-                    )}
+      {recs.length > 0 ? (
+        <HistoryAccordion entries={recs}>
+          {(rows) => (
+            <div className="space-y-3 pt-1">
+              {rows.map((r) => (
+                <div key={r.id} className="p-4 rounded-2xl bg-white/10 border border-white/15">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-xs text-white/40">{r.date}</span>
+                        {r.injury_severity && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SEVERITY_COLOR[r.injury_severity] || 'bg-white/10 text-white/50'}`}>
+                            {r.injury_severity}
+                          </span>
+                        )}
+                        {r.recurrence && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-medium">recurrence</span>
+                        )}
+                      </div>
+                      <p className="text-sm font-semibold text-white">{r.injury_type || 'Unknown injury'}</p>
+                      {r.rehabilitation_program && (
+                        <p className="text-xs text-white/50 mt-1">
+                          Rehab: {r.rehabilitation_program}
+                          {r.rehabilitation_weeks ? ` · ${r.rehabilitation_weeks}w` : ''}
+                        </p>
+                      )}
+                      {r.notes && <p className="text-xs text-white/30 mt-1">{r.notes}</p>}
+                    </div>
+                    <button onClick={() => handleDelete(r.id)} className="text-white/30 hover:text-red-400 transition-colors shrink-0">✕</button>
                   </div>
-                  <p className="text-sm font-semibold text-white">{r.injury_type || 'Unknown injury'}</p>
-                  {r.rehabilitation_program && (
-                    <p className="text-xs text-white/50 mt-1">
-                      Rehab: {r.rehabilitation_program}
-                      {r.rehabilitation_weeks ? ` · ${r.rehabilitation_weeks}w` : ''}
-                    </p>
-                  )}
-                  {r.notes && <p className="text-xs text-white/30 mt-1">{r.notes}</p>}
                 </div>
-                <button onClick={() => handleDelete(r.id)} className="text-white/30 hover:text-red-400 transition-colors shrink-0">✕</button>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-
-      {recs.length === 0 && !adding && (
-        <p className="text-white/30 text-sm text-center py-8">No injury records yet.</p>
+          )}
+        </HistoryAccordion>
+      ) : (
+        !adding && <p className="text-white/30 text-sm text-center py-8">No injury records yet.</p>
       )}
     </div>
   )

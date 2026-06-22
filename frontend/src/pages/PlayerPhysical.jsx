@@ -5,6 +5,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts'
 import { getPhysical, addPhysical, deletePhysical } from '../api/players'
+import HistoryAccordion from '../components/HistoryAccordion'
 import toast from 'react-hot-toast'
 
 const inputCls = 'w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-white/30'
@@ -123,37 +124,39 @@ export default function PlayerPhysical() {
         </form>
       )}
 
-      {recs.length > 0 && (
-        <div className="overflow-x-auto rounded-2xl border border-white/15">
-          <table className="w-full text-xs text-white/70">
-            <thead>
-              <tr className="border-b border-white/10 bg-white/5">
-                <th className="text-left px-4 py-3 font-medium text-white/50">Date</th>
-                <th className="text-left px-4 py-3 font-medium text-white/50">Knee Str.</th>
-                <th className="text-left px-4 py-3 font-medium text-white/50">Hamstring</th>
-                <th className="text-left px-4 py-3 font-medium text-white/50">Reaction ms</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {recs.map((r) => (
-                <tr key={r.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                  <td className="px-4 py-3">{r.date}</td>
-                  <td className="px-4 py-3">{r.knee_strength_score ?? '—'}</td>
-                  <td className="px-4 py-3">{r.hamstring_flexibility ?? '—'}</td>
-                  <td className="px-4 py-3">{r.reaction_time_ms ?? '—'}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => handleDelete(r.id)} className="text-white/30 hover:text-red-400 transition-colors">✕</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {recs.length === 0 && !adding && (
-        <p className="text-white/30 text-sm text-center py-8">No physical assessments yet.</p>
+      {recs.length > 0 ? (
+        <HistoryAccordion entries={recs}>
+          {(rows) => (
+            <div className="overflow-x-auto rounded-xl border border-white/10">
+              <table className="w-full text-xs text-white/70">
+                <thead>
+                  <tr className="border-b border-white/10 bg-white/5">
+                    <th className="text-left px-4 py-3 font-medium text-white/50">Date</th>
+                    <th className="text-left px-4 py-3 font-medium text-white/50">Knee Str.</th>
+                    <th className="text-left px-4 py-3 font-medium text-white/50">Hamstring</th>
+                    <th className="text-left px-4 py-3 font-medium text-white/50">Reaction ms</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <td className="px-4 py-3">{r.date}</td>
+                      <td className="px-4 py-3">{r.knee_strength_score ?? '—'}</td>
+                      <td className="px-4 py-3">{r.hamstring_flexibility ?? '—'}</td>
+                      <td className="px-4 py-3">{r.reaction_time_ms ?? '—'}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button onClick={() => handleDelete(r.id)} className="text-white/30 hover:text-red-400 transition-colors">✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </HistoryAccordion>
+      ) : (
+        !adding && <p className="text-white/30 text-sm text-center py-8">No physical assessments yet.</p>
       )}
     </div>
   )

@@ -21,7 +21,6 @@ export const addWellness       = (id, data)   => api.post(`/players/${id}/wellne
 export const deleteWellness    = (id, lid)    => api.delete(`/players/${id}/wellness/${lid}`)
 
 export const getRecommendations      = (id)      => api.get(`/players/${id}/recommendations`)
-export const generateRecommendations = (id)      => api.post(`/players/${id}/recommendations/generate`)
 export const acceptRecommendation    = (id, rid) => api.post(`/players/${id}/recommendations/${rid}/accept`)
 export const refuseRecommendation    = (id, rid) => api.post(`/players/${id}/recommendations/${rid}/refuse`)
 export const completeRecommendation  = (id, rid) => api.post(`/players/${id}/recommendations/${rid}/complete`)

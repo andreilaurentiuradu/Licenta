@@ -37,10 +37,10 @@ const FAQS = [
   {
     q: 'Can I accept, refuse or complete a recommendation?',
     a: [
-      'Accept — marks the recommendation as acknowledged (an "Accepted" badge appears).',
-      'Refuse — discards it and immediately replaces it with a different recommendation of the same category.',
-      'Mark complete — moves it to the "Completed" history section at the bottom of the page.',
-      'Regenerate refused — re-rolls only the recommendations you previously refused, leaving the others untouched.',
+      'Accept — marks the recommendation as acknowledged (an "Accepted" badge appears); it stays in the active list.',
+      'Refuse — moves it to History and immediately adds a new recommendation of the same category.',
+      'Mark complete — moves it to History and immediately adds a new recommendation of the same category.',
+      'The History section at the bottom lists both completed (✓) and refused (✕) recommendations.',
     ],
   },
   {

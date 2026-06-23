@@ -33,11 +33,11 @@ class TestGetRecommendations:
         data = client.get(f"/api/players/{PLAYER_UID}/recommendations", headers=auth_headers()).get_json()
         assert data["ai_enabled"] is False
         assert len(data["active"]) >= 1
-        assert data["completed"] == []
+        assert data["history"] == []
 
     def test_response_has_required_fields(self, client, mock_player):
         data = client.get(f"/api/players/{PLAYER_UID}/recommendations", headers=auth_headers()).get_json()
-        for key in ("injury_risk", "fl_probability", "ai_enabled", "active", "completed"):
+        for key in ("injury_risk", "fl_probability", "ai_enabled", "active", "history"):
             assert key in data
 
     def test_active_recommendation_structure(self, client, mock_player):
@@ -82,55 +82,44 @@ class TestActions:
         assert resp.status_code == 200
         assert resp.get_json()["status"] == "accepted"
 
-    def test_complete_moves_to_history(self, client, mock_player):
+    def test_complete_moves_to_history_and_replaces(self, client, mock_player):
         rec = self._first_active(client)
-        client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/complete", headers=auth_headers())
+        resp = client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/complete", headers=auth_headers())
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body["item"]["id"] == rec["id"]
+        # a fresh same-category replacement is returned
+        assert body["replacement"]["category"] == rec["category"]
+        assert body["replacement"]["status"] == "pending"
+        assert body["replacement"]["id"] != rec["id"]
+
         data = client.get(f"/api/players/{PLAYER_UID}/recommendations", headers=auth_headers()).get_json()
         assert all(r["id"] != rec["id"] for r in data["active"])
-        assert any(r["id"] == rec["id"] and r["status"] == "completed" for r in data["completed"])
+        assert any(r["id"] == rec["id"] and r["status"] == "completed" for r in data["history"])
+        assert any(r["id"] == body["replacement"]["id"] for r in data["active"])
 
-    def test_refuse_returns_replacement_same_category(self, client, mock_player):
+    def test_refuse_moves_to_history_and_replaces(self, client, mock_player):
         rec = self._first_active(client)
         resp = client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/refuse", headers=auth_headers())
         assert resp.status_code == 200
         body = resp.get_json()
-        assert body["refused"] == rec["id"]
+        assert body["item"]["id"] == rec["id"]
+        assert body["item"]["status"] == "refused"
         assert body["replacement"]["category"] == rec["category"]
         assert body["replacement"]["text"] != rec["text"]
         assert body["replacement"]["status"] == "pending"
-        assert body["replacement"]["from_refusal"] is True
 
-    def test_generate_rerolls_only_refused(self, client, mock_player):
-        url = f"/api/players/{PLAYER_UID}/recommendations"
-        first = client.get(url, headers=auth_headers()).get_json()["active"]
+        data = client.get(f"/api/players/{PLAYER_UID}/recommendations", headers=auth_headers()).get_json()
+        assert any(r["id"] == rec["id"] and r["status"] == "refused" for r in data["history"])
 
-        # nothing refused yet -> generate is a no-op
-        r0 = client.post(f"{url}/generate", headers=auth_headers()).get_json()
-        assert r0["regenerated"] == 0
-        assert sorted(x["id"] for x in r0["active"]) == sorted(x["id"] for x in first)
-
-        # refuse the first -> a from_refusal replacement appears
-        refused_id = first[0]["id"]
-        repl = client.post(f"{url}/{refused_id}/refuse", headers=auth_headers()).get_json()["replacement"]
-        kept_ids = {first[1]["id"], first[2]["id"]}
-
-        # generate -> only the refused replacement is re-rolled; the rest stays
-        gen = client.post(f"{url}/generate", headers=auth_headers()).get_json()
-        assert gen["regenerated"] == 1
-        active_ids = {x["id"] for x in gen["active"]}
-        assert kept_ids <= active_ids        # untouched recommendations preserved
-        assert repl["id"] not in active_ids  # the refused replacement was re-rolled away
-
-    def test_cannot_refuse_an_accepted_recommendation(self, client, mock_player):
-        """A stale second device must not be able to refuse an already-accepted rec."""
+    def test_cannot_act_on_a_history_item(self, client, mock_player):
+        """A recommendation already in history (completed/refused) cannot be acted on again."""
         rec = self._first_active(client)
-        client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/accept", headers=auth_headers())
+        client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/complete", headers=auth_headers())
         resp = client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/refuse", headers=auth_headers())
         assert resp.status_code == 409
         body = resp.get_json()
         assert "error" in body and "active" in body          # fresh state for resync
-        # it stays accepted and no replacement was created
-        assert any(r["id"] == rec["id"] and r["status"] == "accepted" for r in body["active"])
 
     def test_accept_is_idempotent(self, client, mock_player):
         rec = self._first_active(client)

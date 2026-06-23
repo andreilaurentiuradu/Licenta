@@ -40,6 +40,8 @@ export default function PlayerLayout() {
 
   const activeTab = TABS.find((t) => location.pathname.endsWith(`/${t.path}`))?.path
   const bgVariant = BG_VARIANTS[activeTab] || 'spark'
+  // Period filter only applies to time-series tabs; Biometrics/Recommendations have fixed data.
+  const showPeriod = ['training', 'physical', 'injuries', 'wellness'].includes(activeTab)
 
   const fromDate = params.get('from') || ''
   const toDate   = params.get('to')   || ''
@@ -75,7 +77,8 @@ export default function PlayerLayout() {
             </h1>
           </div>
 
-          {/* Date range — stacks on mobile, inline on sm+ */}
+          {/* Date range — only on time-series tabs */}
+          {showPeriod && (
           <div className="flex flex-wrap items-center gap-2 mb-4">
             <span className="text-xs text-white/40">Period:</span>
             <div className="flex items-center gap-2 flex-wrap">
@@ -102,6 +105,7 @@ export default function PlayerLayout() {
               )}
             </div>
           </div>
+          )}
 
           {/* Tabs — horizontal scroll on mobile, visible all on desktop */}
           <div className="relative">

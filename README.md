@@ -546,15 +546,14 @@ Privacy-by-design: raw player data never leaves the service. Only model weights 
 
 ### AI Recommendations (ai-recommendation-service)
 
-Recommendations are **persisted** in the `recommendations` table and are **not** regenerated on every page visit. The LLM is called only on the first-ever visit (to populate), on an explicit "Generate new" request, or when a recommendation is refused (one replacement). Each recommendation has a status: `pending`, `accepted`, `refused` or `completed`.
+Recommendations are **persisted** in the `recommendations` table and are **not** regenerated on every page visit. The LLM is called only on the first-ever visit (to populate), or when a recommendation is **completed or refused** — each of those moves the item to history and adds one fresh replacement of the **same category**. Each recommendation has a status: `pending`, `accepted`, `refused` or `completed`.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/api/players/<id>/recommendations` | coach / own player | Return stored active + completed recommendations (generates an initial set only when none exist) |
-| `POST` | `/api/players/<id>/recommendations/generate` | coach / own player | Force a fresh set (archives current active ones, keeps history) |
-| `POST` | `/api/players/<id>/recommendations/<rid>/accept` | coach / own player | Mark a recommendation as accepted |
-| `POST` | `/api/players/<id>/recommendations/<rid>/refuse` | coach / own player | Refuse it and return a replacement of the **same category** |
-| `POST` | `/api/players/<id>/recommendations/<rid>/complete` | coach / own player | Mark as complete → moves to the completed history |
+| `GET` | `/api/players/<id>/recommendations` | coach / own player | Return stored `active` + `history` recommendations (generates an initial set only when none exist) |
+| `POST` | `/api/players/<id>/recommendations/<rid>/accept` | coach / own player | Mark a recommendation as accepted (stays active) |
+| `POST` | `/api/players/<id>/recommendations/<rid>/refuse` | coach / own player | Move it to history and return a replacement of the **same category** |
+| `POST` | `/api/players/<id>/recommendations/<rid>/complete` | coach / own player | Move it to history and return a replacement of the **same category** |
 
 Generation flow:
 1. Fetches the player's FL injury risk score from `fl-service /internal/risk/<id>` — this is the authoritative risk source (returned on every call, never an LLM guess)
@@ -617,7 +616,7 @@ User identity is owned by Keycloak — no users table in the application databas
 - Recharts time-series visualisations (line, bar, stacked bar) on all metric pages
 - Date range picker in player layout — persisted as URL search params (still applies on top of the grouping below)
 - Player history (training / physical / wellness / injuries) grouped into collapsible time buckets: Today / This week / This month / Last 3 months / Older
-- Recommendations page: accept / refuse (→ a replacement of the same category) / mark complete, with a completed-history section below
+- Recommendations page: accept / refuse / mark complete — refuse and complete both add a same-category replacement and move the item to the History section (✓ completed / ✕ refused) below
 - Role-based home dashboard:
   - **Admin** → User Management card + FL admin panel (per-club training + admin-only quality metrics: cross-validated accuracy / recall / log loss)
   - **Coach** → Players card + FL Panel (train button, round/clubs stats) + Injury Risk Ranking (sorted by FL probability, red alert for high-risk players)
@@ -634,10 +633,10 @@ Each microservice has its own pytest suite. The frontend uses vitest. All tests 
 | auth-service | `test_auth.py` | register validation, role enforcement, `/me`, admin create-user |
 | player-service | `test_players.py` | biometrics CRUD + RBAC, training, physical, wellness (nutrition_score), injuries |
 | fl-service | `test_fl.py` | status (no model / with model), admin-only metrics, internal trigger, train RBAC, admin per-club training, club listing |
-| ai-recommendation-service | `test_ai.py` | RBAC, persisted recommendations (no re-generation), accept / refuse (same-category replacement) / complete, generate, Groq fallback |
+| ai-recommendation-service | `test_ai.py` | RBAC, persisted recommendations (no re-generation), accept, refuse & complete (same-category replacement + move to history), conflict guard, Groq fallback |
 | feedback-service | `test_feedback.py` | submit validation, persistence, admin list |
 
-**Frontend (vitest + Testing Library)** — 69 tests across 12 files:
+**Frontend (vitest + Testing Library)** — 68 tests across 12 files:
 
 - `AuthContext.test.jsx` — token storage, login, logout, expired token
 - `Login.test.jsx` — form rendering, sport default/preserve, navigation
@@ -648,7 +647,7 @@ Each microservice has its own pytest suite. The frontend uses vitest. All tests 
 - `Feedback.test.jsx` — star rating aspects, form submission
 - `Home.test.jsx` — role-aware cards: admin → User Management, coach → Players, player → My Stats
 - `SportSelect.test.jsx` — sport card click, localStorage, navigation
-- `PlayerRecommendations.test.jsx` — render, accept, refuse (replacement), complete (history), regenerate refused, interval polling
+- `PlayerRecommendations.test.jsx` — render, accept, refuse & complete (same-category replacement + history), history display, interval polling
 - `Support.test.jsx` — header, FAQ entries (recommendation actions & history grouping), expand, back navigation
 - `ThemedBackground.test.jsx` — variant selection, unknown-variant fallback, decorative/non-interactive glyphs
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams }           from 'react-router-dom'
 import {
-  getRecommendations, generateRecommendations,
+  getRecommendations,
   acceptRecommendation, refuseRecommendation, completeRecommendation,
 } from '../api/players'
 import toast from 'react-hot-toast'
@@ -25,12 +25,11 @@ export default function PlayerRecommendations() {
   const [data, setData]     = useState(null)
   const [loading, setLoading]   = useState(true)
   const [busyId, setBusyId]     = useState(null)
-  const [generating, setGenerating] = useState(false)
 
   // Latest "action in flight" flag, readable from the polling interval without
   // re-subscribing it on every render.
   const busyRef = useRef(false)
-  busyRef.current = busyId !== null || generating
+  busyRef.current = busyId !== null
 
   // Silent background refresh — never toggles the loading spinner.
   const refresh = () =>
@@ -88,49 +87,25 @@ export default function PlayerRecommendations() {
     } finally { setBusyId(null) }
   }
 
-  const refuse = async (rid) => {
+  // Both refuse and complete move the item to history and add a fresh
+  // same-category replacement to the active list.
+  const moveToHistory = async (rid, apiCall, successMsg) => {
     setBusyId(rid)
     try {
-      const { data: res } = await refuseRecommendation(id, rid)
+      const { data: res } = await apiCall(id, rid)
       setData((d) => ({
         ...d,
-        active: [...d.active.filter((r) => r.id !== rid), res.replacement],
+        active:  [...d.active.filter((r) => r.id !== rid), res.replacement],
+        history: [res.item, ...d.history],
       }))
-      toast.success('Replaced with another recommendation')
+      toast.success(successMsg)
     } catch (err) {
       if (!handleConflict(err)) toast.error('Action failed')
     } finally { setBusyId(null) }
   }
 
-  const complete = async (rid) => {
-    setBusyId(rid)
-    try {
-      const { data: rec } = await completeRecommendation(id, rid)
-      setData((d) => ({
-        ...d,
-        active:    d.active.filter((r) => r.id !== rid),
-        completed: [rec, ...d.completed],
-      }))
-      toast.success('Marked as complete')
-    } catch (err) {
-      if (!handleConflict(err)) toast.error('Action failed')
-    } finally { setBusyId(null) }
-  }
-
-  const generate = async () => {
-    setGenerating(true)
-    try {
-      const { data: fresh } = await generateRecommendations(id)
-      setData(fresh)
-      if (fresh.regenerated === 0) {
-        toast('Nothing to regenerate — refuse a recommendation first.', { icon: 'ℹ️' })
-      } else {
-        toast.success('Regenerated the refused recommendations')
-      }
-    } catch {
-      toast.error('Failed to regenerate')
-    } finally { setGenerating(false) }
-  }
+  const refuse   = (rid) => moveToHistory(rid, refuseRecommendation,   'Replaced with another recommendation')
+  const complete = (rid) => moveToHistory(rid, completeRecommendation, 'Completed — added a new one')
 
   if (loading) return (
     <div className="flex items-center gap-3 text-white/40 text-sm py-6">
@@ -159,19 +134,12 @@ export default function PlayerRecommendations() {
         </div>
       </div>
 
-      {/* Header + generate */}
+      {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-white/40">
           {data.ai_enabled ? '✦ AI-generated recommendations' : '○ Default recommendations'}
         </p>
-        <button
-          onClick={generate}
-          disabled={generating}
-          title="Re-rolls only the recommendations you refused"
-          className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-xs text-white hover:bg-white/20 transition-all disabled:opacity-50"
-        >
-          {generating ? 'Regenerating…' : '↻ Regenerate refused'}
-        </button>
+        <p className="text-xs text-white/30">Complete or refuse one to get a new one of the same type</p>
       </div>
 
       {/* Active recommendations */}
@@ -219,25 +187,33 @@ export default function PlayerRecommendations() {
         </p>
       )}
 
-      {/* Completed history */}
-      {data.completed.length > 0 && (
+      {/* History — completed & refused */}
+      {data.history.length > 0 && (
         <div className="pt-2">
           <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">
-            Completed ({data.completed.length})
+            History ({data.history.length})
           </p>
           <div className="space-y-2">
-            {data.completed.map((rec) => (
-              <div key={rec.id} className="flex items-start gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10">
-                <span className="text-emerald-400 mt-0.5 shrink-0">✓</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-white/50">{rec.category}</p>
-                  <p className="text-sm text-white/40 line-through leading-relaxed">{rec.text}</p>
+            {data.history.map((rec) => {
+              const refused = rec.status === 'refused'
+              return (
+                <div key={rec.id} className="flex items-start gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10">
+                  <span className={`mt-0.5 shrink-0 ${refused ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {refused ? '✕' : '✓'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-white/50">
+                      {rec.category}
+                      <span className="ml-2 text-white/30">· {refused ? 'refused' : 'completed'}</span>
+                    </p>
+                    <p className="text-sm text-white/40 line-through leading-relaxed">{rec.text}</p>
+                  </div>
+                  {rec.updated_at && (
+                    <span className="text-xs text-white/25 shrink-0">{rec.updated_at.slice(0, 10)}</span>
+                  )}
                 </div>
-                {rec.updated_at && (
-                  <span className="text-xs text-white/25 shrink-0">{rec.updated_at.slice(0, 10)}</span>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

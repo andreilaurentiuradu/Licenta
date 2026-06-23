@@ -284,16 +284,17 @@ def _active_query(user_id: str):
 
 def _serialize(user_id: str, fl_risk: dict) -> dict:
     active = _active_query(user_id).order_by(Recommendation.id).all()
-    completed = (Recommendation.query
-                 .filter_by(user_id=user_id, status="completed")
-                 .order_by(Recommendation.updated_at.desc())
-                 .all())
+    history = (Recommendation.query
+               .filter_by(user_id=user_id)
+               .filter(Recommendation.status.in_(("completed", "refused")))
+               .order_by(Recommendation.updated_at.desc())
+               .all())
     return {
         "injury_risk":    fl_risk["risk"],          # FL model — authoritative, not the LLM
         "fl_probability": fl_risk["probability"],
         "ai_enabled":     bool(current_app.config.get("GROQ_API_KEY", "")),
         "active":         [r.to_dict() for r in active],
-        "completed":      [r.to_dict() for r in completed],
+        "history":        [r.to_dict() for r in history],
     }
 
 
@@ -305,6 +306,17 @@ def _conflict(user_id: str, message: str):
     payload = _serialize(user_id, _fetch_fl_risk(user_id))
     payload["error"] = message
     return jsonify(payload), 409
+
+
+def _make_replacement(user_id: str, category: str, fl_risk: dict) -> Recommendation:
+    """Create and stage a fresh, pending recommendation in the same category,
+    avoiding texts already used for this player. The caller commits."""
+    avoid = [r.text for r in Recommendation.query.filter_by(
+        user_id=user_id, category=category).all()]
+    new = _generate_one(user_id, category, avoid, fl_risk)
+    rep = Recommendation(user_id=user_id, status="pending", **new)
+    db.session.add(rep)
+    return rep
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
@@ -327,33 +339,6 @@ def get_recommendations(user_id):
     return jsonify(_serialize(user_id, fl_risk))
 
 
-@ai_bp.post("/<user_id>/recommendations/generate")
-@require_auth()
-def generate_recommendations(user_id):
-    """Regenerate ONLY the recommendations that came from a refusal — for each,
-    re-roll a fresh same-category alternative. Accepted and original (never-refused)
-    recommendations are left untouched."""
-    if not _can_access(user_id):
-        return jsonify({"error": "Forbidden"}), 403
-
-    fl_risk = _fetch_fl_risk(user_id)
-    targets = Recommendation.query.filter_by(
-        user_id=user_id, status="pending", from_refusal=True).all()
-
-    for r in targets:
-        r.status = "refused"
-        avoid = [x.text for x in Recommendation.query.filter_by(
-            user_id=user_id, category=r.category).all()]
-        new = _generate_one(user_id, r.category, avoid, fl_risk)
-        db.session.add(Recommendation(user_id=user_id, status="pending",
-                                      from_refusal=True, **new))
-    db.session.commit()
-
-    payload = _serialize(user_id, fl_risk)
-    payload["regenerated"] = len(targets)
-    return jsonify(payload)
-
-
 @ai_bp.post("/<user_id>/recommendations/<int:rid>/accept")
 @require_auth()
 def accept_recommendation(user_id, rid):
@@ -372,38 +357,30 @@ def accept_recommendation(user_id, rid):
 @ai_bp.post("/<user_id>/recommendations/<int:rid>/complete")
 @require_auth()
 def complete_recommendation(user_id, rid):
+    """Mark a recommendation complete, move it to history, and replace it with a
+    fresh one of the same category."""
     if not _can_access(user_id):
         return jsonify({"error": "Forbidden"}), 403
     rec = Recommendation.query.filter_by(id=rid, user_id=user_id).first_or_404()
-    if rec.status == "completed":
-        return jsonify(rec.to_dict())               # idempotent
     if rec.status not in ("pending", "accepted"):
-        return _conflict(user_id, "This recommendation can no longer be completed.")
+        return _conflict(user_id, "This recommendation is already in history.")
     rec.status = "completed"
+    replacement = _make_replacement(user_id, rec.category, _fetch_fl_risk(user_id))
     db.session.commit()
-    return jsonify(rec.to_dict())
+    return jsonify({"item": rec.to_dict(), "replacement": replacement.to_dict()})
 
 
 @ai_bp.post("/<user_id>/recommendations/<int:rid>/refuse")
 @require_auth()
 def refuse_recommendation(user_id, rid):
-    """Refuse a recommendation and return a replacement of the same category."""
+    """Refuse a recommendation, move it to history, and replace it with a fresh
+    one of the same category."""
     if not _can_access(user_id):
         return jsonify({"error": "Forbidden"}), 403
     rec = Recommendation.query.filter_by(id=rid, user_id=user_id).first_or_404()
-    # Only a still-pending recommendation can be refused. This prevents a stale
-    # second device from refusing one that was already accepted/completed.
-    if rec.status != "pending":
-        return _conflict(user_id, "This recommendation can no longer be refused.")
+    if rec.status not in ("pending", "accepted"):
+        return _conflict(user_id, "This recommendation is already in history.")
     rec.status = "refused"
-
-    avoid = [r.text for r in Recommendation.query.filter_by(
-        user_id=user_id, category=rec.category).all()]
-    fl_risk = _fetch_fl_risk(user_id)
-    new = _generate_one(user_id, rec.category, avoid, fl_risk)
-    replacement = Recommendation(user_id=user_id, status="pending",
-                                 from_refusal=True, **new)
-    db.session.add(replacement)
+    replacement = _make_replacement(user_id, rec.category, _fetch_fl_risk(user_id))
     db.session.commit()
-
-    return jsonify({"refused": rid, "replacement": replacement.to_dict()})
+    return jsonify({"item": rec.to_dict(), "replacement": replacement.to_dict()})

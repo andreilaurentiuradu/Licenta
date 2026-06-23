@@ -140,6 +140,38 @@ class TestFlTrain:
         # only the targeted club is trained, not every club
         assert [c.args[0] for c in called.call_args_list] == ["FC Alpha"]
 
+    def test_no_new_data_keeps_round(self, client, mock_coach, app, mocker):
+        """Fallback: if the data signature is unchanged, the round is not advanced."""
+        from models import PlayerProfile, FLClubModel, db
+        from fl import pipeline
+        with app.app_context():
+            db.session.add(PlayerProfile(user_id="s1", username="s1", club="TestClub"))
+            db.session.commit()
+            sig = pipeline.club_data_signature("TestClub")
+            db.session.add(FLClubModel(club="TestClub", coef_json="[]",
+                                       intercept_json="[]", n_samples=1, data_sig=sig))
+            db.session.commit()
+        spy = mocker.patch("fl.pipeline._do_club_update")
+
+        data = client.post("/api/fl/train", headers=auth_headers()).get_json()
+        assert data["trained"] is False
+        assert "no new data" in data["warning"].lower()
+        spy.assert_not_called()
+
+    def test_new_data_triggers_training(self, client, mock_coach, app, mocker):
+        """Fallback: a changed signature advances the round."""
+        from models import PlayerProfile, FLClubModel, db
+        with app.app_context():
+            db.session.add(PlayerProfile(user_id="s2", username="s2", club="TestClub"))
+            db.session.add(FLClubModel(club="TestClub", coef_json="[]",
+                                       intercept_json="[]", n_samples=1, data_sig="STALE"))
+            db.session.commit()
+        spy = mocker.patch("fl.pipeline._do_club_update", return_value=True)
+
+        data = client.post("/api/fl/train", headers=auth_headers()).get_json()
+        assert data["trained"] is True
+        spy.assert_called_once_with("TestClub")
+
 
 class TestFlClubs:
 

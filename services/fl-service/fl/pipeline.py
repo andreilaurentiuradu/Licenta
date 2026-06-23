@@ -89,6 +89,27 @@ def bootstrap_global_model(app):
 
 # ── Per-club update ────────────────────────────────────────────────────────────
 
+def club_data_signature(club: str) -> str:
+    """A cheap fingerprint of a club's underlying data (row counts + max ids
+    across the four metric tables). Changes whenever rows are added/removed, so
+    the manual 'train' button can tell whether new data appeared since the last
+    round."""
+    from models import (
+        PlayerProfile, WellnessLog, TrainingLog, PhysicalAssessment, InjuryRecord, db,
+    )
+    from sqlalchemy import func
+
+    uids = [p.user_id for p in PlayerProfile.query.filter_by(club=club).all()]
+    if not uids:
+        return "0"
+    parts = []
+    for M in (WellnessLog, TrainingLog, PhysicalAssessment, InjuryRecord):
+        cnt, mx = (db.session.query(func.count(M.id), func.coalesce(func.max(M.id), 0))
+                   .filter(M.user_id.in_(uids)).first())
+        parts.append(f"{cnt}:{mx}")
+    return "|".join(parts)
+
+
 def _run_club_update(club: str, app):
     """
     Fine-tune the club's local model then re-aggregate the global model.
@@ -110,13 +131,13 @@ def _do_club_update(club: str):
     global_m = FLGlobalModel.query.order_by(FLGlobalModel.id.desc()).first()
     if not global_m:
         log.warning("[FL] No global model yet — bootstrap must run first.")
-        return
+        return False
 
     # Extract feature matrix for this club
     X, y = extract_club_dataset(club)
     if X is None:
         log.info("[FL] Club %r: insufficient data for local training — skipped.", club)
-        return
+        return False
 
     # Fine-tune local model starting from global weights
     g_coef      = np.array(json.loads(global_m.coef_json))
@@ -138,6 +159,7 @@ def _do_club_update(club: str):
     club_m.coef_json      = json.dumps(coef.tolist())
     club_m.intercept_json = json.dumps(intercept.tolist())
     club_m.n_samples      = n
+    club_m.data_sig       = club_data_signature(club)
     club_m.updated_at     = datetime.now(timezone.utc)
     db.session.commit()
 
@@ -176,6 +198,7 @@ def _do_club_update(club: str):
         "[FL] Global model updated — round=%d  clubs=%d  total_samples=%d",
         new_round, len(all_clubs), total_n,
     )
+    return True
 
 
 # ── Public trigger ─────────────────────────────────────────────────────────────

@@ -180,6 +180,9 @@ class FLClubModel(db.Model):
     coef_json      = db.Column(db.Text, nullable=False)
     intercept_json = db.Column(db.Text, nullable=False)
     n_samples      = db.Column(db.Integer, default=0)
+    # signature of the club's underlying data at the last round — lets the manual
+    # "train" button detect whether new data appeared since then.
+    data_sig       = db.Column(db.String(128))
     updated_at     = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):

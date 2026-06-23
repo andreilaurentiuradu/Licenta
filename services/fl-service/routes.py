@@ -49,13 +49,18 @@ def _fetch_user_club(user_id: str):
 @require_auth(roles=["coach", "admin"])
 def trigger_fl_round():
     """
-    Manually trigger an FL update round.
+    Manual FL round — a *fallback* to the automatic per-mutation training.
 
-    - Coach: trains their own club.
-    - Admin: trains the club passed in the body ({"club": "..."}), or all clubs
-      if none is given.
+    Training normally runs automatically whenever data changes. Pressing this
+    button only advances the round if there is **new data** for a club since its
+    last round (detected via a data signature). If nothing changed, the round
+    number stays the same and the caller is told so.
+
+    - Coach: their own club.
+    - Admin: the club in the body ({"club": "..."}), or all clubs if omitted.
     """
-    from models import PlayerProfile, WellnessLog, FLGlobalModel, FLClubModel
+    from models import PlayerProfile, FLGlobalModel, FLClubModel
+    from fl.pipeline import _do_club_update, club_data_signature
 
     claims   = g.claims
     roles    = claims.get("realm_access", {}).get("roles", [])
@@ -68,72 +73,58 @@ def trigger_fl_round():
         club = claims.get("club") or _fetch_user_club(claims.get("sub", ""))
 
     if is_admin and not club:
-        profiles = PlayerProfile.query.all()           # every club
+        target_clubs = sorted({p.club for p in PlayerProfile.query.all() if p.club})
     elif club:
-        profiles = PlayerProfile.query.filter_by(club=club).all()
+        target_clubs = [club] if PlayerProfile.query.filter_by(club=club).first() else []
     else:
-        profiles = []
+        target_clubs = []
 
-    if not profiles:
+    if not target_clubs:
         return jsonify({
             "trained": False,
             "warning": f"No players found for {club or 'your club'}.",
         }), 200
 
-    # Stale-data check
-    cutoff = date.today() - timedelta(days=_STALE_DAYS)
-    players_with_new_data = sum(
-        1 for p in profiles
-        if WellnessLog.query.filter(
-            WellnessLog.user_id == p.user_id,
-            WellnessLog.date    >= cutoff,
-        ).count() > 0
-    )
+    before = FLGlobalModel.query.order_by(FLGlobalModel.id.desc()).first()
+    before_round = before.round if before else None
 
-    warning = None
-    if players_with_new_data == 0:
-        warning = (
-            f"No new wellness data in the last {_STALE_DAYS} days "
-            f"for {club or 'your club'}. Training on historical data only."
-        )
+    updated, skipped = [], []
+    for c in target_clubs:
+        club_m  = FLClubModel.query.filter_by(club=c).first()
+        cur_sig = club_data_signature(c)
+        if club_m and club_m.data_sig == cur_sig:
+            skipped.append(c)            # no new data since the last round
+            continue
+        try:
+            if _do_club_update(c):
+                updated.append(c)
+            else:
+                skipped.append(c)        # not enough data to train a model
+        except Exception as exc:
+            log.warning("[FL /train] Error for club %r: %s", c, exc)
+            skipped.append(c)
 
-    # Run real FL update
-    trained     = False
-    accuracy    = None
-    fl_round    = None
-    clubs_count = None
+    global_m = FLGlobalModel.query.order_by(FLGlobalModel.id.desc()).first()
+    fl_round = global_m.round if global_m else None
+    trained  = bool(updated)
 
-    try:
-        from fl.pipeline import _do_club_update
-        if is_admin and not club:
-            all_clubs = list({p.club for p in profiles if p.club})
-            for c in all_clubs:
-                _do_club_update(c)
-        elif club:
-            _do_club_update(club)
+    if trained:
+        message = f"Round advanced to {fl_round} · trained: {', '.join(updated)}."
+        warning = None
+    else:
+        message = "No new data since the last round — round unchanged."
+        warning = message
 
-        global_m = FLGlobalModel.query.order_by(FLGlobalModel.id.desc()).first()
-        if global_m:
-            trained     = True
-            accuracy    = global_m.accuracy
-            fl_round    = global_m.round
-            clubs_count = global_m.clubs_count
-    except Exception as exc:
-        log.warning("[FL /train] Error: %s", exc)
-
-    club_label = club if club else "all clubs"
     return jsonify({
-        "trained":                  trained,
-        "club":                     club_label,
-        "players_in_round":         len(profiles),
-        "players_with_recent_data": players_with_new_data,
-        "warning":                  warning,
-        "fl_round":                 fl_round,
-        "clubs_count":              clubs_count,
-        "message": (
-            f"FL round completed for {len(profiles)} player(s) in {club_label}. "
-            "Weights aggregated via FedAvg."
-        ) if trained else "FL update skipped — insufficient data.",
+        "trained":      trained,
+        "club":         club if club else "all clubs",
+        "fl_round":     fl_round,
+        "before_round": before_round,
+        "clubs_count":  global_m.clubs_count if global_m else None,
+        "updated":      updated,
+        "skipped":      skipped,
+        "warning":      warning,
+        "message":      message,
     })
 
 

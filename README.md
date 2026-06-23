@@ -375,10 +375,9 @@ The 4 clubs have distinct risk profiles — designed to make FedAvg aggregation 
    - **Injury Risk Ranking** panel — 3 players sorted by FL risk score
    - Red alert banner: players with high risk flagged immediately
    - **Federated Learning** panel with current model stats (round, clubs)
-3. In the **FL panel** → click **"Start round →"**
-   - FL fine-tunes the FC Rivals local model on the seeded data
-   - FedAvg aggregates across all clubs → global model updated
-   - Round counter increments (quality metrics are visible to admins only)
+3. In the **FL panel** → click **"Start round →"** (a manual *fallback* — training also runs automatically on every data change)
+   - If the club has **new data** since its last round: FL fine-tunes the local model, FedAvg aggregates → the **round counter increments**
+   - If there is **no new data**: the round stays the same and a notice is shown (quality metrics are visible to admins only)
 4. Risk Ranking refreshes — probabilities reflect the updated model
 5. Click on a **high-risk player** (e.g. player4 or player5) → navigates to their profile
 6. Browse tabs:
@@ -391,7 +390,7 @@ The 4 clubs have distinct risk profiles — designed to make FedAvg aggregation 
 7. Click **Players** card → full player list for FC Rivals only (other clubs not visible)
 8. Repeat step 3 logged in as `coach1`, `coach3`, `coach4` to add all 4 clubs to the global model
 
-> Each "Start round →" from a different coach club adds a new FedAvg round. After 4 coaches train, `clubs_count = 4` in the FL panel.
+> "Start round →" only adds a new FedAvg round when that club has new data since its last round; otherwise it reports "no new data". As clubs contribute, `clubs_count` grows in the FL panel.
 
 ---
 
@@ -497,7 +496,7 @@ All endpoints require a valid JWT. Players can only access their own data; coach
 
 All list endpoints accept `?from=YYYY-MM-DD&to=YYYY-MM-DD` date filters.
 
-After every data mutation (wellness / training / physical / injury), player-service automatically POSTs to `fl-service /internal/trigger` to schedule a background FL update for that club.
+After every data mutation (wellness / training / physical / injury), player-service automatically POSTs to `fl-service /internal/trigger` to schedule a background FL update for that club. The manual **"Start round"** button is a *fallback*: it re-checks each club's data signature and only advances the round when new data exists that the automatic path hasn't processed yet (e.g. after the `seed`/`risk` scripts write to the DB directly).
 
 ### Federated Learning (fl-service)
 
@@ -537,7 +536,7 @@ Privacy-by-design: raw player data never leaves the service. Only model weights 
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/fl/train` | coach / admin | Trigger an FL round. Coach → own club; admin → a specific club via `{"club": "..."}`, or all clubs if omitted |
+| `POST` | `/api/fl/train` | coach / admin | Manual **fallback** round — only advances if a club has new data since its last round (data-signature check); otherwise the round is unchanged and a notice is returned. Coach → own club; admin → `{"club": "..."}` or all clubs |
 | `GET` | `/api/fl/status` | coach / admin | Global model: round, clubs, samples. Quality metrics (accuracy / recall / loss) are **admin-only** |
 | `GET` | `/api/fl/clubs` | admin | Clubs with player counts and last local-model state (for per-club training) |
 | `GET` | `/api/fl/risk` | coach / admin | Injury risk ranking for all players in the coach's club |
@@ -632,7 +631,7 @@ Each microservice has its own pytest suite. The frontend uses vitest. All tests 
 |---|---|---|
 | auth-service | `test_auth.py` | register validation, role enforcement, `/me`, admin create-user |
 | player-service | `test_players.py` | biometrics CRUD + RBAC, training, physical, wellness (nutrition_score), injuries |
-| fl-service | `test_fl.py` | status (no model / with model), admin-only metrics, internal trigger, train RBAC, admin per-club training, club listing |
+| fl-service | `test_fl.py` | status (no model / with model), admin-only metrics, internal trigger, train RBAC, admin per-club training, manual fallback (data-signature gate), club listing |
 | ai-recommendation-service | `test_ai.py` | RBAC, persisted recommendations (no re-generation), accept, refuse & complete (same-category replacement + move to history), conflict guard, Groq fallback |
 | feedback-service | `test_feedback.py` | submit validation, persistence, admin list |
 

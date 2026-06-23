@@ -81,8 +81,8 @@ function FLPanel({ club }) {
     try {
       const { data } = await triggerFLRound()
       setResult(data)
-      if (data.warning) toast(data.warning, { icon: '⚠️', duration: 7000 })
-      else toast.success('FL training round completed')
+      if (data.trained) toast.success(data.message || 'FL round completed')
+      else toast(data.warning || 'No new data — round unchanged', { icon: 'ℹ️', duration: 6000 })
       // Refresh status after training
       getFlStatus().then(r => setStatus(r.data)).catch(() => {})
     } catch {
@@ -135,16 +135,13 @@ function FLPanel({ club }) {
       {/* Training result */}
       {result && (
         <div className="mt-3 space-y-2">
-          {result.warning && (
+          {result.trained ? (
+            <p className="text-xs text-emerald-400">Round advanced to {result.fl_round}</p>
+          ) : (
             <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-              <span className="text-amber-400 text-xs mt-0.5">⚠</span>
+              <span className="text-amber-400 text-xs mt-0.5">ℹ</span>
               <p className="text-xs text-amber-300">{result.warning}</p>
             </div>
-          )}
-          {result.trained && !result.warning && (
-            <p className="text-xs text-emerald-400">
-              Round {result.fl_round} complete · {result.players_in_round} players
-            </p>
           )}
         </div>
       )}
@@ -168,8 +165,8 @@ function AdminFLPanel() {
     setBusy(club)
     try {
       const { data } = await triggerFLRound(club)
-      if (data.trained) toast.success(`Round ${data.fl_round} complete · ${club}`)
-      else toast(data.warning || 'FL update skipped', { icon: 'ℹ️' })
+      if (data.trained) toast.success(`Round advanced to ${data.fl_round} · ${club}`)
+      else toast(data.warning || 'No new data — round unchanged', { icon: 'ℹ️' })
       refresh()
     } catch {
       toast.error('Failed to run FL round')

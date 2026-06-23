@@ -32,6 +32,7 @@ app.register_blueprint(internal_bp, url_prefix="/internal")
 _MIGRATIONS = [
     "ALTER TABLE fl_global_models ADD COLUMN IF NOT EXISTS recall DOUBLE PRECISION",
     "ALTER TABLE fl_global_models ADD COLUMN IF NOT EXISTS loss   DOUBLE PRECISION",
+    "ALTER TABLE fl_club_models   ADD COLUMN IF NOT EXISTS data_sig VARCHAR(128)",
 ]
 
 

@@ -553,6 +553,7 @@ Recommendations are **persisted** in the `recommendations` table and are **not**
 | `POST` | `/api/players/<id>/recommendations/<rid>/accept` | coach / own player | Mark a recommendation as accepted (stays active) |
 | `POST` | `/api/players/<id>/recommendations/<rid>/refuse` | coach / own player | Move it to history and return a replacement of the **same category** |
 | `POST` | `/api/players/<id>/recommendations/<rid>/complete` | coach / own player | Move it to history and return a replacement of the **same category** |
+| `POST` | `/api/players/<id>/recommendations/<rid>/restore` | coach / own player | Bring a completed/refused recommendation back into the active list |
 
 Generation flow:
 1. Fetches the player's FL injury risk score from `fl-service /internal/risk/<id>` — this is the authoritative risk source (returned on every call, never an LLM guess)
@@ -615,7 +616,7 @@ User identity is owned by Keycloak — no users table in the application databas
 - Recharts time-series visualisations (line, bar, stacked bar) on all metric pages
 - Date range picker in player layout — persisted as URL search params (still applies on top of the grouping below)
 - Player history (training / physical / wellness / injuries) grouped into collapsible time buckets: Today / This week / This month / Last 3 months / Older
-- Recommendations page: accept / refuse / mark complete — refuse and complete both add a same-category replacement and move the item to the History section (✓ completed / ✕ refused) below
+- Recommendations page: accept / refuse / mark complete — refuse and complete both add a same-category replacement and move the item to History. History is split into collapsible **Completed** and **Refused** sections, and any item can be **restored** to the active list
 - Role-based home dashboard:
   - **Admin** → User Management card + FL admin panel (per-club training + admin-only quality metrics: cross-validated accuracy / recall / log loss)
   - **Coach** → Players card + FL Panel (train button, round/clubs stats) + Injury Risk Ranking (sorted by FL probability, red alert for high-risk players)
@@ -632,7 +633,7 @@ Each microservice has its own pytest suite. The frontend uses vitest. All tests 
 | auth-service | `test_auth.py` | register validation, role enforcement, `/me`, admin create-user |
 | player-service | `test_players.py` | biometrics CRUD + RBAC, training, physical, wellness (nutrition_score), injuries |
 | fl-service | `test_fl.py` | status (no model / with model), admin-only metrics, internal trigger, train RBAC, admin per-club training, manual fallback (data-signature gate), club listing |
-| ai-recommendation-service | `test_ai.py` | RBAC, persisted recommendations (no re-generation), accept, refuse & complete (same-category replacement + move to history), conflict guard, Groq fallback |
+| ai-recommendation-service | `test_ai.py` | RBAC, persisted recommendations (no re-generation), accept, refuse & complete (same-category replacement + move to history), restore from history, conflict guard, Groq fallback |
 | feedback-service | `test_feedback.py` | submit validation, persistence, admin list |
 
 **Frontend (vitest + Testing Library)** — 68 tests across 12 files:
@@ -646,7 +647,7 @@ Each microservice has its own pytest suite. The frontend uses vitest. All tests 
 - `Feedback.test.jsx` — star rating aspects, form submission
 - `Home.test.jsx` — role-aware cards: admin → User Management, coach → Players, player → My Stats
 - `SportSelect.test.jsx` — sport card click, localStorage, navigation
-- `PlayerRecommendations.test.jsx` — render, accept, refuse & complete (same-category replacement + history), history display, interval polling
+- `PlayerRecommendations.test.jsx` — render, accept, refuse & complete (same-category replacement + history), collapsible Completed/Refused + restore, interval polling
 - `Support.test.jsx` — header, FAQ entries (recommendation actions & history grouping), expand, back navigation
 - `ThemedBackground.test.jsx` — variant selection, unknown-variant fallback, decorative/non-interactive glyphs
 

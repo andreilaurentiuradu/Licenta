@@ -24,3 +24,4 @@ export const getRecommendations      = (id)      => api.get(`/players/${id}/reco
 export const acceptRecommendation    = (id, rid) => api.post(`/players/${id}/recommendations/${rid}/accept`)
 export const refuseRecommendation    = (id, rid) => api.post(`/players/${id}/recommendations/${rid}/refuse`)
 export const completeRecommendation  = (id, rid) => api.post(`/players/${id}/recommendations/${rid}/complete`)
+export const restoreRecommendation   = (id, rid) => api.post(`/players/${id}/recommendations/${rid}/restore`)

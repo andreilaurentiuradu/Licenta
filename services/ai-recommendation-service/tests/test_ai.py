@@ -121,6 +121,22 @@ class TestActions:
         body = resp.get_json()
         assert "error" in body and "active" in body          # fresh state for resync
 
+    def test_restore_brings_history_item_back_to_active(self, client, mock_player):
+        rec = self._first_active(client)
+        client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/refuse", headers=auth_headers())
+        resp = client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/restore", headers=auth_headers())
+        assert resp.status_code == 200
+        assert resp.get_json()["status"] == "pending"
+
+        data = client.get(f"/api/players/{PLAYER_UID}/recommendations", headers=auth_headers()).get_json()
+        assert any(r["id"] == rec["id"] for r in data["active"])
+        assert all(r["id"] != rec["id"] for r in data["history"])
+
+    def test_restore_rejects_active_item(self, client, mock_player):
+        rec = self._first_active(client)
+        resp = client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/restore", headers=auth_headers())
+        assert resp.status_code == 409
+
     def test_accept_is_idempotent(self, client, mock_player):
         rec = self._first_active(client)
         first  = client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/accept", headers=auth_headers())

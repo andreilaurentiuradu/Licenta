@@ -30,10 +30,11 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from sqlalchemy import Column, Integer, String, Float, Boolean, Date, Text, DateTime
 from datetime import datetime, timezone
 
-KC_URL   = os.environ.get("KEYCLOAK_URL", "http://localhost:8180")
-KC_REALM = "lawranalyzer"
-DB_URL   = os.environ.get("DATABASE_URL",
-           "postgresql://sa_user:sa_pass@localhost:5432/lawranalyzer")
+KC_URL     = os.environ.get("KEYCLOAK_URL", "http://localhost:8180")
+KC_REALM   = "lawranalyzer"
+DB_URL     = os.environ.get("DATABASE_URL",
+             "postgresql://sa_user:sa_pass@localhost:5432/lawranalyzer")
+FL_SERVICE = os.environ.get("FL_SERVICE_URL", "http://fl-service:5003")
 
 COACHES = [
     {"username": "coach1", "email": "coach1@demo.ro", "password": "coach123",
@@ -399,6 +400,29 @@ def seed_player(session, uid, p, force_n_injuries=None):
     print(f"[DB] Seeded '{p['username']}'  ({p['club']})  profile={profile}")
 
 
+def trigger_fl_for_clubs(clubs):
+    """Kick off an FL round per club after seeding.
+
+    The seed writes straight to the DB (bypassing player-service), so the
+    automatic per-mutation trigger never fires. We call the fl-service directly
+    here so the global model reflects the seeded data without a manual button.
+    Retries briefly in case the fl-service bootstrap hasn't finished yet."""
+    print("\n[3/3] Triggering FL training for seeded clubs...")
+    for club in clubs:
+        ok = False
+        for attempt in range(10):
+            try:
+                r = requests.post(f"{FL_SERVICE}/internal/trigger",
+                                  json={"club": club}, timeout=5)
+                if r.status_code == 200:
+                    ok = True
+                    break
+            except Exception:
+                pass
+            time.sleep(3)
+        print(f"  [FL] {'Triggered' if ok else 'Could NOT trigger'} training for {club}")
+
+
 # ── Main ───────────────────────────────────────────────────────────────────
 
 def main():
@@ -447,6 +471,10 @@ def main():
         seed_player(session, uid, p, force_n_injuries=force)
 
     session.close()
+
+    # Reflect the seeded data in the FL model right away (the manual button
+    # remains a fallback for data added outside the app).
+    trigger_fl_for_clubs(sorted({p["club"] for p in PLAYERS}))
 
     print("\n=== Done! ===")
     print("\nDemo accounts:")

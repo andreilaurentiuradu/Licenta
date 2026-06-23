@@ -40,7 +40,8 @@ const FAQS = [
       'Accept — marks the recommendation as acknowledged (an "Accepted" badge appears); it stays in the active list.',
       'Refuse — moves it to History and immediately adds a new recommendation of the same category.',
       'Mark complete — moves it to History and immediately adds a new recommendation of the same category.',
-      'The History section at the bottom lists both completed (✓) and refused (✕) recommendations.',
+      'History is split into collapsible Completed (✓) and Refused (✕) sections; click a section to expand it.',
+      'Restore — any history item can be brought back into the active list with the ↩ Restore button.',
     ],
   },
   {

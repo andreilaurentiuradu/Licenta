@@ -384,3 +384,17 @@ def refuse_recommendation(user_id, rid):
     replacement = _make_replacement(user_id, rec.category, _fetch_fl_risk(user_id))
     db.session.commit()
     return jsonify({"item": rec.to_dict(), "replacement": replacement.to_dict()})
+
+
+@ai_bp.post("/<user_id>/recommendations/<int:rid>/restore")
+@require_auth()
+def restore_recommendation(user_id, rid):
+    """Bring a completed/refused recommendation back into the active list."""
+    if not _can_access(user_id):
+        return jsonify({"error": "Forbidden"}), 403
+    rec = Recommendation.query.filter_by(id=rid, user_id=user_id).first_or_404()
+    if rec.status not in ("completed", "refused"):
+        return _conflict(user_id, "This recommendation is not in history.")
+    rec.status = "pending"
+    db.session.commit()
+    return jsonify(rec.to_dict())

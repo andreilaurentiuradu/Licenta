@@ -2,11 +2,57 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams }           from 'react-router-dom'
 import {
   getRecommendations,
-  acceptRecommendation, refuseRecommendation, completeRecommendation,
+  acceptRecommendation, refuseRecommendation, completeRecommendation, restoreRecommendation,
 } from '../api/players'
 import toast from 'react-hot-toast'
 
 const POLL_MS = 15000   // light polling so a second device stays roughly in sync
+
+// Collapsible (read-more) history group — Completed or Refused.
+function HistorySection({ label, items, icon, iconColor, onRestore, busyId }) {
+  const [open, setOpen] = useState(false)
+  if (items.length === 0) return null
+  return (
+    <div className="rounded-2xl bg-white/8 border border-white/10 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/12 transition-colors"
+      >
+        <span className="text-sm font-medium text-white">
+          <span className={`mr-2 ${iconColor}`}>{icon}</span>{label}
+          <span className="ml-2 text-xs text-white/40">({items.length})</span>
+        </span>
+        <span className="text-white/40 text-lg ml-4 shrink-0"
+          style={{ transform: open ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s' }}>
+          +
+        </span>
+      </button>
+      {open && (
+        <div className="px-3 pb-3 space-y-2">
+          {items.map((rec) => (
+            <div key={rec.id} className="flex items-start gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-white/50">
+                  {rec.category}
+                  {rec.updated_at && <span className="text-white/30"> · {rec.updated_at.slice(0, 10)}</span>}
+                </p>
+                <p className="text-sm text-white/40 line-through leading-relaxed">{rec.text}</p>
+              </div>
+              <button
+                onClick={() => onRestore(rec.id)}
+                disabled={busyId === rec.id}
+                className="shrink-0 px-2.5 py-1 rounded-lg bg-white/10 text-white/70 text-xs font-medium hover:bg-white/20 transition-all disabled:opacity-50"
+              >
+                ↩ Restore
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const PRIORITY_STYLE = {
   high:   { badge: 'bg-red-500/20 text-red-300',         dot: 'bg-red-400'     },
@@ -107,6 +153,22 @@ export default function PlayerRecommendations() {
   const refuse   = (rid) => moveToHistory(rid, refuseRecommendation,   'Replaced with another recommendation')
   const complete = (rid) => moveToHistory(rid, completeRecommendation, 'Completed — added a new one')
 
+  // Bring a history item (completed or refused) back into the active list.
+  const restore = async (rid) => {
+    setBusyId(rid)
+    try {
+      const { data: rec } = await restoreRecommendation(id, rid)
+      setData((d) => ({
+        ...d,
+        active:  [...d.active, rec],
+        history: d.history.filter((r) => r.id !== rid),
+      }))
+      toast.success('Restored to active')
+    } catch (err) {
+      if (!handleConflict(err)) toast.error('Action failed')
+    } finally { setBusyId(null) }
+  }
+
   if (loading) return (
     <div className="flex items-center gap-3 text-white/40 text-sm py-6">
       <svg className="animate-spin h-4 w-4 text-indigo-400" viewBox="0 0 24 24" fill="none">
@@ -187,34 +249,18 @@ export default function PlayerRecommendations() {
         </p>
       )}
 
-      {/* History — completed & refused */}
+      {/* History — separate collapsible Completed / Refused groups */}
       {data.history.length > 0 && (
-        <div className="pt-2">
-          <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">
-            History ({data.history.length})
-          </p>
-          <div className="space-y-2">
-            {data.history.map((rec) => {
-              const refused = rec.status === 'refused'
-              return (
-                <div key={rec.id} className="flex items-start gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10">
-                  <span className={`mt-0.5 shrink-0 ${refused ? 'text-red-400' : 'text-emerald-400'}`}>
-                    {refused ? '✕' : '✓'}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-white/50">
-                      {rec.category}
-                      <span className="ml-2 text-white/30">· {refused ? 'refused' : 'completed'}</span>
-                    </p>
-                    <p className="text-sm text-white/40 line-through leading-relaxed">{rec.text}</p>
-                  </div>
-                  {rec.updated_at && (
-                    <span className="text-xs text-white/25 shrink-0">{rec.updated_at.slice(0, 10)}</span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+        <div className="pt-2 space-y-2">
+          <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-1">History</p>
+          <HistorySection
+            label="Completed" icon="✓" iconColor="text-emerald-400" busyId={busyId} onRestore={restore}
+            items={data.history.filter((r) => r.status === 'completed')}
+          />
+          <HistorySection
+            label="Refused" icon="✕" iconColor="text-red-400" busyId={busyId} onRestore={restore}
+            items={data.history.filter((r) => r.status === 'refused')}
+          />
         </div>
       )}
 

@@ -16,6 +16,7 @@ vi.mock('../../api/players', () => ({
   acceptRecommendation:   vi.fn(),
   refuseRecommendation:   vi.fn(),
   completeRecommendation: vi.fn(),
+  restoreRecommendation:  vi.fn(),
 }))
 
 const DATA = {
@@ -104,7 +105,7 @@ describe('PlayerRecommendations page', () => {
     }
   })
 
-  it('shows history (completed & refused) when present', async () => {
+  it('separates Completed/Refused into collapsible sections and restores an item', async () => {
     api.getRecommendations.mockResolvedValue({
       data: {
         ...DATA, active: [],
@@ -114,11 +115,24 @@ describe('PlayerRecommendations page', () => {
         ],
       },
     })
+    api.restoreRecommendation.mockResolvedValue({
+      data: { id: 5, category: 'Nutrition', priority: 'low', text: 'Ate well.', status: 'pending' },
+    })
     renderWithRouter(<PlayerRecommendations />)
-    await waitFor(() => expect(screen.getByText('Ate well.')).toBeInTheDocument())
-    expect(screen.getByText('Skipped it.')).toBeInTheDocument()
-    expect(screen.getByText(/History/i)).toBeInTheDocument()
-    expect(screen.getByText(/completed/i)).toBeInTheDocument()
-    expect(screen.getByText(/refused/i)).toBeInTheDocument()
+
+    // both section headers render; items are collapsed (hidden) by default
+    await waitFor(() => screen.getByRole('button', { name: /Completed/i }))
+    expect(screen.getByRole('button', { name: /Refused/i })).toBeInTheDocument()
+    expect(screen.queryByText('Ate well.')).not.toBeInTheDocument()
+
+    // expand Completed → item shows, then restore it
+    await userEvent.click(screen.getByRole('button', { name: /Completed/i }))
+    expect(screen.getByText('Ate well.')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /Restore/i }))
+    await waitFor(() => {
+      expect(api.restoreRecommendation).toHaveBeenCalledWith('player-uid-1', 5)
+      expect(screen.getByText('Ate well.')).toBeInTheDocument()  // now back in active
+    })
   })
 })

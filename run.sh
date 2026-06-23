@@ -185,6 +185,7 @@ run_seed() {
     -w /app \
     -e KEYCLOAK_URL="http://keycloak:8080" \
     -e DATABASE_URL="postgresql://sa_user:sa_pass@postgres:5432/lawranalyzer" \
+    -e FL_SERVICE_URL="http://fl-service:5003" \
     python:3.11-slim \
     bash -c "pip install --no-cache-dir -q -r requirements.txt && python seed.py"
 }

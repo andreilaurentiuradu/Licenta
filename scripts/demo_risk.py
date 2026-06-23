@@ -6,13 +6,13 @@ funcționează — fără salturi artificiale de la 0% la 100%.
 Cum funcționează:
   - citește coeficienții + interceptul modelului global (fl_global_models);
   - alege ALEATOR o probabilitate-țintă în interiorul zonei cerute
-    (ex. low ≈ 12–34%, medium ≈ 44–60%, high ≈ 70–90%);
+    (ex. low ≈ 12-34%, medium ≈ 44-60%, high ≈ 70-90%);
   - pentru cele 11 caracteristici dinamice definește o extremă „bună" (risc
     minim) și una „rea" (risc maxim), în funcție de semnul coeficienților;
   - modelul fiind o regresie logistică pe caracteristici brute, scorul
     z = intercept + Σ coef·x este LINIAR în intensitatea t∈[0,1] care
     interpolează între cele două extreme, deci se rezolvă EXACT
-    t = (logit(țintă) − z(0)) / (z(1) − z(0));
+    t = (logit(țintă) - z(0)) / (z(1) - z(0));
   - scrie în baza de date valorile interpolate la acel t (date fizice,
     wellness, antrenamente, accidentări);
   - cere riscul recalculat direct de la fl-service (același endpoint ca UI-ul)

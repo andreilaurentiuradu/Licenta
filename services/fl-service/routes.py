@@ -122,7 +122,6 @@ def trigger_fl_round():
         "players_with_recent_data": players_with_new_data,
         "warning":                  warning,
         "fl_round":                 fl_round,
-        "global_accuracy":          accuracy,
         "clubs_count":              clubs_count,
         "message": (
             f"FL round completed for {len(profiles)} player(s) in {club_label}. "
@@ -147,13 +146,16 @@ def fl_status():
 
     club_models = FLClubModel.query.order_by(FLClubModel.updated_at.desc()).all()
 
-    return jsonify({
+    # Model-quality metrics (accuracy / recall / loss) are restricted to admins.
+    is_admin = "admin" in g.claims.get("realm_access", {}).get("roles", [])
+
+    payload = {
         "ready":           True,
         "round":           global_m.round,
-        "accuracy":        global_m.accuracy,
         "n_samples_total": global_m.n_samples_total,
         "clubs_count":     global_m.clubs_count,
         "updated_at":      global_m.updated_at.isoformat() if global_m.updated_at else None,
+        "is_admin":        is_admin,
         "club_models": [
             {
                 "club":       c.club,
@@ -162,7 +164,14 @@ def fl_status():
             }
             for c in club_models
         ],
-    })
+    }
+
+    if is_admin:
+        payload["accuracy"] = global_m.accuracy
+        payload["recall"]   = global_m.recall
+        payload["loss"]     = global_m.loss
+
+    return jsonify(payload)
 
 
 @fl_bp.get("/risk")

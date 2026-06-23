@@ -92,7 +92,6 @@ function FLPanel({ club }) {
     }
   }
 
-  const acc   = status?.accuracy   ?? result?.global_accuracy  ?? null
   const round = status?.round      ?? result?.fl_round          ?? null
 
   return (
@@ -113,15 +112,9 @@ function FLPanel({ club }) {
         </button>
       </div>
 
-      {/* Global model stats */}
+      {/* Global model stats (model-quality metrics are admin-only) */}
       {status?.ready && (
-        <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3 text-center">
-          <div className="p-2 rounded-lg bg-white/5">
-            <p className="text-base font-bold text-indigo-300">
-              {acc !== null ? `${(acc * 100).toFixed(1)}%` : '—'}
-            </p>
-            <p className="text-xs text-white/40">Accuracy</p>
-          </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 text-center">
           <div className="p-2 rounded-lg bg-white/5">
             <p className="text-base font-bold text-white">{round ?? '—'}</p>
             <p className="text-xs text-white/40">Round</p>
@@ -155,6 +148,40 @@ function FLPanel({ club }) {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// Admin-only: cross-validated quality metrics of the global FL model.
+function AdminModelStats() {
+  const [status, setStatus] = useState(null)
+  useEffect(() => { getFlStatus().then(r => setStatus(r.data)).catch(() => {}) }, [])
+  if (!status?.ready || status.accuracy == null) return null
+
+  const pct  = `${(status.accuracy * 100).toFixed(1)}%`
+  const rec  = status.recall != null ? status.recall.toFixed(2) : '—'
+  const loss = status.loss   != null ? status.loss.toFixed(3)   : '—'
+
+  return (
+    <div className="mb-6 p-5 rounded-2xl bg-white/8 border border-white/10">
+      <p className="text-sm font-semibold text-white">FL Model · Performance</p>
+      <p className="text-xs text-white/40 mt-0.5">
+        5-fold cross-validated on the bootstrap dataset · admin-only · round {status.round}
+      </p>
+      <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3 text-center">
+        <div className="p-2 rounded-lg bg-white/5">
+          <p className="text-base font-bold text-indigo-300">{pct}</p>
+          <p className="text-xs text-white/40">Accuracy (CV)</p>
+        </div>
+        <div className="p-2 rounded-lg bg-white/5">
+          <p className="text-base font-bold text-indigo-300">{rec}</p>
+          <p className="text-xs text-white/40">Recall</p>
+        </div>
+        <div className="p-2 rounded-lg bg-white/5">
+          <p className="text-base font-bold text-indigo-300">{loss}</p>
+          <p className="text-xs text-white/40">Log loss</p>
+        </div>
+      </div>
     </div>
   )
 }
@@ -335,6 +362,9 @@ export default function Home() {
               ))}
             </div>
           </div>
+
+          {/* FL model metrics — admin only */}
+          {isAdmin && <AdminModelStats />}
 
           {/* FL panel + Risk ranking — coach only, side-by-side on desktop */}
           {isCoach && (

@@ -39,7 +39,6 @@ function FLPanel({ club }) {
     }
   }
 
-  const acc   = flStatus?.accuracy ?? null
   const round = flStatus?.round    ?? null
 
   return (
@@ -61,15 +60,9 @@ function FLPanel({ club }) {
         </button>
       </div>
 
-      {/* Global model stats */}
+      {/* Global model stats (model-quality metrics are admin-only) */}
       {flStatus?.ready && (
-        <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3 text-center">
-          <div className="p-2 rounded-lg bg-white/5">
-            <p className="text-lg font-bold text-indigo-300">
-              {acc !== null ? `${(acc * 100).toFixed(1)}%` : '—'}
-            </p>
-            <p className="text-xs text-white/40">Accuracy</p>
-          </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 text-center">
           <div className="p-2 rounded-lg bg-white/5">
             <p className="text-lg font-bold text-white">{round ?? '—'}</p>
             <p className="text-xs text-white/40">Round</p>

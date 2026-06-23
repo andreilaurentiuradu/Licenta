@@ -152,7 +152,9 @@ class FLGlobalModel(db.Model):
     round           = db.Column(db.Integer, default=0, nullable=False)
     coef_json       = db.Column(db.Text, nullable=False)
     intercept_json  = db.Column(db.Text, nullable=False)
-    accuracy        = db.Column(db.Float)
+    accuracy        = db.Column(db.Float)   # 5-fold cross-validated accuracy
+    recall          = db.Column(db.Float)   # 5-fold cross-validated recall
+    loss            = db.Column(db.Float)   # 5-fold cross-validated log loss
     n_samples_total = db.Column(db.Integer, default=0)
     clubs_count     = db.Column(db.Integer, default=0)
     updated_at      = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -162,6 +164,8 @@ class FLGlobalModel(db.Model):
             "id":              self.id,
             "round":           self.round,
             "accuracy":        self.accuracy,
+            "recall":          self.recall,
+            "loss":            self.loss,
             "n_samples_total": self.n_samples_total,
             "clubs_count":     self.clubs_count,
             "updated_at":      self.updated_at.isoformat() if self.updated_at else None,

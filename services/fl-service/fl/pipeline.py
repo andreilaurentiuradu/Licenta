@@ -38,8 +38,7 @@ def bootstrap_global_model(app):
     with app.app_context():
         from models import FLGlobalModel, db
         from fl.model import FEATURES, TARGET, preprocess, build_model, get_params
-        from sklearn.model_selection import train_test_split
-        from sklearn.metrics import accuracy_score
+        from sklearn.model_selection import cross_val_score
         import pandas as pd
 
         if FLGlobalModel.query.count() > 0:
@@ -58,27 +57,34 @@ def bootstrap_global_model(app):
 
         X = df[FEATURES].values
         y = df[TARGET].values
-        X_tr, X_te, y_tr, y_te = train_test_split(
-            X, y, test_size=0.15, random_state=42, stratify=y
-        )
 
+        # Report 5-fold cross-validated metrics — a low-variance, honest
+        # generalization estimate (a single hold-out split of ~100 samples is
+        # too noisy to be representative).
+        acc  = float(cross_val_score(build_model(), X, y, cv=5, scoring="accuracy").mean())
+        rec  = float(cross_val_score(build_model(), X, y, cv=5, scoring="recall").mean())
+        loss = float(-cross_val_score(build_model(), X, y, cv=5, scoring="neg_log_loss").mean())
+
+        # Train the deployed model on ALL data (more data = better weights).
         model = build_model()
-        model.fit(X_tr, y_tr)
-        acc = accuracy_score(y_te, model.predict(X_te))
+        model.fit(X, y)
         coef, intercept = get_params(model)
 
         record = FLGlobalModel(
             round           = 0,
             coef_json       = json.dumps(coef.tolist()),
             intercept_json  = json.dumps(intercept.tolist()),
-            accuracy        = round(float(acc), 5),
-            n_samples_total = int(len(y_tr)),
+            accuracy        = round(acc, 5),
+            recall          = round(rec, 5),
+            loss            = round(loss, 5),
+            n_samples_total = int(len(y)),
             clubs_count     = 0,
             updated_at      = datetime.now(timezone.utc),
         )
         db.session.add(record)
         db.session.commit()
-        log.info("[FL] Bootstrap complete — accuracy=%.4f  n_train=%d", acc, len(y_tr))
+        log.info("[FL] Bootstrap complete — cv_acc=%.4f recall=%.4f loss=%.4f  n=%d",
+                 acc, rec, loss, len(y))
 
 
 # ── Per-club update ────────────────────────────────────────────────────────────
@@ -156,7 +162,9 @@ def _do_club_update(club: str):
         round           = new_round,
         coef_json       = json.dumps(new_coef.tolist()),
         intercept_json  = json.dumps(new_intercept.tolist()),
-        accuracy        = global_m.accuracy,   # bootstrap accuracy kept as reference
+        accuracy        = global_m.accuracy,   # bootstrap CV metrics kept as reference
+        recall          = global_m.recall,
+        loss            = global_m.loss,
         n_samples_total = total_n,
         clubs_count     = len(all_clubs),
         updated_at      = datetime.now(timezone.utc),

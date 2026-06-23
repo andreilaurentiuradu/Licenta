@@ -45,16 +45,16 @@ plt.close(fig)
 # ---------------------------------------------------------------- Grafic 2: acuratețe vs baseline
 fig, ax = plt.subplots(figsize=(6.2, 4.6))
 x = ["Baseline\n(clasa majoritară)", "Model\nLawrAnalyzer"]
-y = [57.4, 73.1]
+y = [57.4, 73.3]
 bars = ax.bar(x, y, color=[GRAY, ACCENT], width=0.55)
 ax.set_ylim(0, 100)
-ax.set_ylabel("Acuratețe (%)")
+ax.set_ylabel("Acuratețe (%, cross-validată)")
 ax.set_title("Acuratețea modelului vs. baseline", fontweight="bold", pad=14)
 for b, v in zip(bars, y):
     ax.text(b.get_x() + b.get_width()/2, v + 1.5, f"{v}%",
             ha="center", fontweight="bold")
 # săgeată îmbunătățire
-ax.annotate("+15.7 pp", xy=(1, 73.1), xytext=(1, 88),
+ax.annotate("+15.9 pp", xy=(1, 73.3), xytext=(1, 88),
             ha="center", fontweight="bold", color=GREEN,
             arrowprops=dict(arrowstyle="->", color=GREEN, lw=1.8))
 ax.yaxis.grid(True, alpha=0.25)
@@ -65,9 +65,9 @@ plt.close(fig)
 
 # ---------------------------------------------------------------- Grafic 3: acuratețe vs nr. cluburi
 k      = [1, 2, 4, 8, 16]
-acc    = [73.1, 71.8, 72.4, 72.9, 73.3]
+acc    = [73.3, 71.8, 72.4, 72.9, 73.4]
 fig, ax = plt.subplots(figsize=(7.2, 4.6))
-ax.axhline(73.1, color=GRAY, ls="--", lw=1.6, label="Model centralizat (73.1%)")
+ax.axhline(73.3, color=GRAY, ls="--", lw=1.6, label="Model centralizat (73.3%)")
 ax.plot(range(len(k)), acc, "-o", color=ACCENT, lw=2.4, ms=8,
         label="Model federat (FedAvg)")
 ax.set_xticks(range(len(k)))

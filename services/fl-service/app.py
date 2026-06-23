@@ -18,12 +18,32 @@ app.config["KEYCLOAK_REALM"]                 = os.environ.get("KEYCLOAK_REALM", 
 app.config["KEYCLOAK_ADMIN_USER"]            = os.environ.get("KEYCLOAK_ADMIN_USER", "admin")
 app.config["KEYCLOAK_ADMIN_PASS"]            = os.environ.get("KEYCLOAK_ADMIN_PASS", "admin123")
 
+from sqlalchemy import text
+
 from models import db
 db.init_app(app)
 
 from routes import fl_bp, internal_bp
 app.register_blueprint(fl_bp, url_prefix="/api/fl")
 app.register_blueprint(internal_bp, url_prefix="/internal")
+
+# Idempotent migrations for columns added after the table already exists
+# (create_all never alters an existing table).
+_MIGRATIONS = [
+    "ALTER TABLE fl_global_models ADD COLUMN IF NOT EXISTS recall DOUBLE PRECISION",
+    "ALTER TABLE fl_global_models ADD COLUMN IF NOT EXISTS loss   DOUBLE PRECISION",
+]
+
+
+def _ensure_columns():
+    with app.app_context():
+        for stmt in _MIGRATIONS:
+            try:
+                db.session.execute(text(stmt))
+                db.session.commit()
+            except Exception as exc:
+                db.session.rollback()
+                log.warning("[fl-service] Migration skipped (%s): %s", stmt, exc)
 
 
 def _init_db_then_bootstrap():
@@ -40,6 +60,7 @@ def _init_db_then_bootstrap():
         log.error("[fl-service] Could not connect to DB after 30 attempts.")
         return
 
+    _ensure_columns()
     from fl.pipeline import bootstrap_global_model
     bootstrap_global_model(app)
 

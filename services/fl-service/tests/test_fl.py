@@ -19,28 +19,39 @@ class TestFlStatus:
         data = resp.get_json()
         assert data["ready"] is False
 
-    def test_status_with_global_model(self, client, mock_coach, app):
+    def _seed_model(self, app, round_=1):
         from models import FLGlobalModel, db
-        coef      = np.zeros((1, 12))
-        intercept = np.zeros(1)
         with app.app_context():
             db.session.add(FLGlobalModel(
-                round=1,
-                coef_json=json.dumps(coef.tolist()),
-                intercept_json=json.dumps(intercept.tolist()),
-                accuracy=0.83,
-                n_samples_total=100,
-                clubs_count=2,
+                round=round_,
+                coef_json=json.dumps(np.zeros((1, 12)).tolist()),
+                intercept_json=json.dumps(np.zeros(1).tolist()),
+                accuracy=0.83, recall=0.7, loss=0.5,
+                n_samples_total=100, clubs_count=2,
             ))
             db.session.commit()
 
+    def test_status_with_global_model(self, client, mock_coach, app):
+        self._seed_model(app, round_=1)
         resp = client.get("/api/fl/status", headers=auth_headers())
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["ready"] is True
         assert data["round"] == 1
-        assert data["accuracy"] == 0.83
         assert data["clubs_count"] == 2
+        # model-quality metrics are admin-only — hidden from coaches
+        assert data["is_admin"] is False
+        assert "accuracy" not in data
+        assert "recall" not in data
+        assert "loss" not in data
+
+    def test_metrics_visible_to_admin(self, client, mock_admin, app):
+        self._seed_model(app, round_=1)
+        data = client.get("/api/fl/status", headers=auth_headers()).get_json()
+        assert data["is_admin"] is True
+        assert data["accuracy"] == 0.83
+        assert data["recall"] == 0.7
+        assert data["loss"] == 0.5
 
 
 class TestInternalTrigger:

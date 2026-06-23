@@ -127,6 +127,38 @@ class TestFlTrain:
         resp = client.post("/api/fl/train", headers=auth_headers())
         assert resp.status_code == 200
 
+    def test_admin_trains_specific_club(self, client, mock_admin, app, mocker):
+        from models import PlayerProfile, db
+        called = mocker.patch("fl.pipeline._do_club_update", return_value=None)
+        with app.app_context():
+            db.session.add(PlayerProfile(user_id="ap1", username="ap1", club="FC Alpha"))
+            db.session.add(PlayerProfile(user_id="bp1", username="bp1", club="FC Beta"))
+            db.session.commit()
+
+        resp = client.post("/api/fl/train", headers=auth_headers(), json={"club": "FC Alpha"})
+        assert resp.status_code == 200
+        # only the targeted club is trained, not every club
+        assert [c.args[0] for c in called.call_args_list] == ["FC Alpha"]
+
+
+class TestFlClubs:
+
+    def test_requires_admin(self, client, mock_coach):
+        resp = client.get("/api/fl/clubs", headers=auth_headers())
+        assert resp.status_code == 403
+
+    def test_admin_lists_clubs_with_counts(self, client, mock_admin, app):
+        from models import PlayerProfile, db
+        with app.app_context():
+            db.session.add(PlayerProfile(user_id="c1", username="c1", club="FC Alpha"))
+            db.session.add(PlayerProfile(user_id="c2", username="c2", club="FC Alpha"))
+            db.session.commit()
+
+        data = client.get("/api/fl/clubs", headers=auth_headers()).get_json()
+        clubs = {row["club"]: row for row in data}
+        assert "FC Alpha" in clubs
+        assert clubs["FC Alpha"]["players"] >= 2
+
 
 class TestRiskRanking:
 

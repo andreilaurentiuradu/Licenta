@@ -21,6 +21,7 @@ vi.mock('react-router-dom', async (orig) => {
 vi.mock('../../api/fl', () => ({
   triggerFLRound: vi.fn(),
   getFlStatus:    vi.fn(),
+  getFlClubs:     vi.fn(),
   getRiskRanking: vi.fn(),
 }))
 
@@ -30,6 +31,7 @@ describe('Home page', () => {
     mockNavigate.mockReset()
     flApi.triggerFLRound.mockResolvedValue({ data: { trained: false, warning: null } })
     flApi.getFlStatus.mockResolvedValue({ data: { ready: false } })
+    flApi.getFlClubs.mockResolvedValue({ data: [] })
     flApi.getRiskRanking.mockResolvedValue({ data: [] })
   })
 

@@ -118,7 +118,7 @@ class Recommendation(db.Model):
     text       = db.Column(db.Text)
     # pending | accepted | refused | completed
     status     = db.Column(db.String(16), default="pending", index=True)
-    # True dacă recomandarea a apărut ca înlocuitor după un refuz
+    # True if this recommendation appeared as a replacement after a refusal
     from_refusal = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),

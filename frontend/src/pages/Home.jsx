@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { triggerFLRound, getFlStatus, getRiskRanking } from '../api/fl'
+import { triggerFLRound, getFlStatus, getFlClubs, getRiskRanking } from '../api/fl'
 import toast from 'react-hot-toast'
 
 const THEMES = {
@@ -152,23 +152,54 @@ function FLPanel({ club }) {
   )
 }
 
-// Admin-only: cross-validated quality metrics of the global FL model.
-function AdminModelStats() {
+// Admin-only: cross-validated model metrics + per-club FL training controls.
+function AdminFLPanel() {
   const [status, setStatus] = useState(null)
-  useEffect(() => { getFlStatus().then(r => setStatus(r.data)).catch(() => {}) }, [])
-  if (!status?.ready || status.accuracy == null) return null
+  const [clubs,  setClubs]  = useState([])
+  const [busy,   setBusy]   = useState(null)
 
-  const pct  = `${(status.accuracy * 100).toFixed(1)}%`
-  const rec  = status.recall != null ? status.recall.toFixed(2) : '—'
-  const loss = status.loss   != null ? status.loss.toFixed(3)   : '—'
+  const refresh = () => {
+    getFlStatus().then(r => setStatus(r.data)).catch(() => {})
+    getFlClubs().then(r => setClubs(r.data)).catch(() => {})
+  }
+  useEffect(() => { refresh() }, [])
+
+  const runClub = async (club) => {
+    setBusy(club)
+    try {
+      const { data } = await triggerFLRound(club)
+      if (data.trained) toast.success(`Round ${data.fl_round} complete · ${club}`)
+      else toast(data.warning || 'FL update skipped', { icon: 'ℹ️' })
+      refresh()
+    } catch {
+      toast.error('Failed to run FL round')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  if (!status?.ready) return null
+  const pct  = status.accuracy != null ? `${(status.accuracy * 100).toFixed(1)}%` : '—'
+  const rec  = status.recall   != null ? status.recall.toFixed(2) : '—'
+  const loss = status.loss     != null ? status.loss.toFixed(3)   : '—'
 
   return (
     <div className="mb-6 p-5 rounded-2xl bg-white/8 border border-white/10">
-      <p className="text-sm font-semibold text-white">FL Model · Performance</p>
+      <p className="text-sm font-semibold text-white">Federated Learning · Admin</p>
       <p className="text-xs text-white/40 mt-0.5">
-        5-fold cross-validated on the bootstrap dataset · admin-only · round {status.round}
+        Run a training round per club and watch the global round update · raw data never leaves the club.
       </p>
-      <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3 text-center">
+
+      {/* Global model stats + admin-only quality metrics */}
+      <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 text-center">
+        <div className="p-2 rounded-lg bg-white/5">
+          <p className="text-base font-bold text-white">{status.round ?? '—'}</p>
+          <p className="text-xs text-white/40">Round</p>
+        </div>
+        <div className="p-2 rounded-lg bg-white/5">
+          <p className="text-base font-bold text-white">{status.clubs_count ?? 0}</p>
+          <p className="text-xs text-white/40">Clubs</p>
+        </div>
         <div className="p-2 rounded-lg bg-white/5">
           <p className="text-base font-bold text-indigo-300">{pct}</p>
           <p className="text-xs text-white/40">Accuracy (CV)</p>
@@ -181,6 +212,30 @@ function AdminModelStats() {
           <p className="text-base font-bold text-indigo-300">{loss}</p>
           <p className="text-xs text-white/40">Log loss</p>
         </div>
+      </div>
+
+      {/* Per-club training */}
+      <div className="mt-4 space-y-2">
+        {clubs.map((c) => (
+          <div key={c.club} className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10">
+            <div className="min-w-0">
+              <p className="text-sm text-white truncate">{c.club}</p>
+              <p className="text-xs text-white/40">
+                {c.players} players · {c.n_samples} samples{c.updated_at ? ` · ${c.updated_at.slice(0, 10)}` : ''}
+              </p>
+            </div>
+            <button
+              onClick={() => runClub(c.club)}
+              disabled={busy !== null}
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-semibold transition-all disabled:opacity-50"
+            >
+              {busy === c.club ? 'Running…' : 'Run round →'}
+            </button>
+          </div>
+        ))}
+        {clubs.length === 0 && (
+          <p className="text-white/30 text-xs text-center py-3">No clubs with players yet.</p>
+        )}
       </div>
     </div>
   )
@@ -363,8 +418,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* FL model metrics — admin only */}
-          {isAdmin && <AdminModelStats />}
+          {/* FL training + metrics — admin only */}
+          {isAdmin && <AdminFLPanel />}
 
           {/* FL panel + Risk ranking — coach only, side-by-side on desktop */}
           {isCoach && (

@@ -1,28 +1,28 @@
 """
-Demo script — aduce un jucător într-o zonă de risc de accidentare (SCĂZUT /
-MEDIU / RIDICAT), pentru a demonstra live că pipeline-ul de Federated Learning
-funcționează — fără salturi artificiale de la 0% la 100%.
+Demo script — moves a player into an injury-risk zone (LOW / MEDIUM / HIGH),
+to show live that the Federated Learning pipeline works — without artificial
+jumps from 0% to 100%.
 
-Cum funcționează:
-  - citește coeficienții + interceptul modelului global (fl_global_models);
-  - alege ALEATOR o probabilitate-țintă în interiorul zonei cerute
-    (ex. low ≈ 12-34%, medium ≈ 44-60%, high ≈ 70-90%);
-  - pentru cele 11 caracteristici dinamice definește o extremă „bună" (risc
-    minim) și una „rea" (risc maxim), în funcție de semnul coeficienților;
-  - modelul fiind o regresie logistică pe caracteristici brute, scorul
-    z = intercept + Σ coef·x este LINIAR în intensitatea t∈[0,1] care
-    interpolează între cele două extreme, deci se rezolvă EXACT
-    t = (logit(țintă) - z(0)) / (z(1) - z(0));
-  - scrie în baza de date valorile interpolate la acel t (date fizice,
-    wellness, antrenamente, accidentări);
-  - cere riscul recalculat direct de la fl-service (același endpoint ca UI-ul)
-    și afișează scorul ÎNAINTE și DUPĂ, alături de ținta aleasă.
+How it works:
+  - reads the coefficients + intercept of the global model (fl_global_models);
+  - picks a RANDOM target probability inside the requested zone
+    (e.g. low ~ 12-34%, medium ~ 44-60%, high ~ 70-90%);
+  - for the 11 dynamic features it defines a "good" extreme (minimum risk) and
+    a "bad" extreme (maximum risk), based on the sign of each coefficient;
+  - since the model is a logistic regression over raw features, the score
+    z = intercept + sum(coef*x) is LINEAR in the intensity t in [0,1] that
+    interpolates between the two extremes, so it is solved EXACTLY as
+    t = (logit(target) - z(0)) / (z(1) - z(0));
+  - writes to the database the interpolated values at that t (physical,
+    wellness, training, injuries);
+  - asks the recomputed risk straight from fl-service (the same endpoint the UI
+    uses) and prints the score BEFORE and AFTER, alongside the chosen target.
 
-Rulează cât timp stiva este pornită:
-    ./run.sh risk high            # player1 -> o probabilitate aleatoare în zona high
-    ./run.sh risk medium player6  # player6 -> zona medium
-    ./run.sh risk low  player4    # player4 -> zona low
-    ./run.sh risk reset player1   # revine la date realiste (profil seed)
+Run while the stack is up:
+    ./run.sh risk high            # player1 -> a random probability in the high zone
+    ./run.sh risk medium player6  # player6 -> medium zone
+    ./run.sh risk low  player4    # player4 -> low zone
+    ./run.sh risk reset player1   # back to realistic data (seed profile)
 """
 
 import argparse
@@ -42,7 +42,7 @@ DB_URL     = os.environ.get("DATABASE_URL",
              "postgresql://sa_user:sa_pass@localhost:5432/lawranalyzer")
 FL_SERVICE = os.environ.get("FL_SERVICE_URL", "http://fl-service:5003")
 
-# Ordinea EXACTĂ a caracteristicilor din fl/model.py
+# EXACT feature order from fl/model.py
 FEATURES = [
     "Position", "Previous_Injury_Count", "Knee_Strength_Score",
     "Hamstring_Flexibility", "Reaction_Time_ms", "Balance_Test_Score",
@@ -50,10 +50,10 @@ FEATURES = [
     "Stress_Level_Score", "Nutrition_Quality_Score", "Warmup_Routine_Adherence",
 ]
 
-# Codificarea pozițiilor, identică cu fl/model.py (LabelEncoder pe clasele sortate)
+# Position encoding, identical to fl/model.py (LabelEncoder over the sorted classes)
 POSITION_CLASSES = ["Defender", "Forward", "Goalkeeper", "Midfielder"]
 
-# Intervale realiste (lo, hi) pentru fiecare caracteristică dinamică
+# Realistic ranges (lo, hi) for each dynamic feature
 BOUNDS = {
     "Previous_Injury_Count":    (0, 6),
     "Knee_Strength_Score":      (40, 95),
@@ -68,8 +68,8 @@ BOUNDS = {
     "Warmup_Routine_Adherence": (0.1, 1.0),
 }
 
-# Direcția „mai rău" (risc mai mare) folosită dacă modelul global lipsește.
-# +1 = valoare mai mare înseamnă risc mai mare; -1 = valoare mai mică = risc mai mare.
+# "Worse" direction (higher risk) used if the global model is missing.
+# +1 = a higher value means higher risk; -1 = a lower value means higher risk.
 WORSE_DIRECTION = {
     "Previous_Injury_Count":    +1,
     "Knee_Strength_Score":      -1,
@@ -84,15 +84,15 @@ WORSE_DIRECTION = {
     "Warmup_Routine_Adherence": -1,
 }
 
-# Probabilitatea-țintă este aleasă ALEATOR în interiorul acestor intervale,
-# bine în interiorul pragurilor modelului (high≥0.65, medium≥0.40).
+# The target probability is picked RANDOMLY inside these ranges, well within the
+# model thresholds (high >= 0.65, medium >= 0.40).
 ZONE_TARGETS = {
     "low":    (0.12, 0.34),
     "medium": (0.44, 0.60),
     "high":   (0.70, 0.90),
 }
 
-# Profilul de risc folosit la seed (username -> profil), pentru modul "reset".
+# Risk profile used at seed time (username -> profile), for the "reset" mode.
 PROFILE_MAP = {
     "player1": "low",  "player2": "low",  "player3": "medium",
     "player4": "high", "player5": "high", "player6": "medium",
@@ -100,7 +100,7 @@ PROFILE_MAP = {
     "player10": "high", "player11": "high", "player12": "medium",
 }
 
-# Parametrii per-profil, identici cu seed.py
+# Per-profile parameters, identical to seed.py
 SEED_PROFILES = {
     "low":    dict(sleep=8.0, stress=3, warmup=(0.8, 1.0), injuries=(0, 1), phys=1.05),
     "medium": dict(sleep=7.2, stress=5, warmup=(0.5, 0.9), injuries=(1, 2), phys=1.00),
@@ -128,7 +128,7 @@ def _logit(p):
     return math.log(p / (1.0 - p))
 
 
-# ── Modele standalone (fără Flask), ca în seed.py ──────────────────────────
+# -- Standalone models (no Flask), as in seed.py --------------------------------
 
 class Base(DeclarativeBase):
     pass
@@ -195,21 +195,21 @@ class FLGlobalModel(Base):
     clubs_count = Column(Integer); updated_at = Column(DateTime)
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────
+# -- Helpers --------------------------------------------------------------------
 
 def fetch_risk(user_id: str):
-    """Cere riscul recalculat de la fl-service (același endpoint ca UI-ul)."""
+    """Ask fl-service for the recomputed risk (same endpoint as the UI)."""
     try:
         r = requests.get(f"{FL_SERVICE}/internal/risk/{user_id}", timeout=8)
         if r.status_code == 200:
             return r.json()
     except Exception as exc:
-        print(f"  [!] Nu am putut contacta fl-service: {exc}")
+        print(f"  [!] Could not reach fl-service: {exc}")
     return None
 
 
 def position_code(prof) -> float:
-    """Codifică poziția la fel ca fl/features.py (media setului = 1 dacă lipsește)."""
+    """Encode the position like fl/features.py (dataset mean = 1 if missing)."""
     pos = prof.position or ""
     if pos in POSITION_CLASSES:
         return float(POSITION_CLASSES.index(pos))
@@ -217,26 +217,26 @@ def position_code(prof) -> float:
 
 
 def load_model(session):
-    """Întoarce (dirs, coef, intercept).
+    """Return (dirs, coef, intercept).
 
-    `dirs` = direcția care crește riscul pentru fiecare caracteristică dinamică.
-    `coef`/`intercept` = None dacă nu există model global (caz în care nu se
-    poate ținti analitic o probabilitate și se cade pe extreme)."""
+    `dirs` = the direction that increases risk for each dynamic feature.
+    `coef`/`intercept` = None if no global model exists (in which case a target
+    probability cannot be solved analytically and we fall back to extremes)."""
     gm = session.query(FLGlobalModel).order_by(FLGlobalModel.id.desc()).first()
     if gm and gm.coef_json and gm.intercept_json:
-        coef      = json.loads(gm.coef_json)[0]        # 12 ponderi
+        coef      = json.loads(gm.coef_json)[0]        # 12 weights
         intercept = json.loads(gm.intercept_json)[0]   # scalar
         dirs = {name: (1 if coef[i] >= 0 else -1)
                 for i, name in enumerate(FEATURES) if name in BOUNDS}
-        print(f"  Folosesc modelul global (rundă {gm.round}, {len(coef)} ponderi).")
+        print(f"  Using the global model (round {gm.round}, {len(coef)} weights).")
         return dirs, coef, intercept
-    print("  [!] Niciun model global găsit — folosesc direcțiile intuitive din domeniu.")
+    print("  [!] No global model found — using intuitive domain directions.")
     return dict(WORSE_DIRECTION), None, None
 
 
 def feature_value(name, t, dirs):
-    """Valoarea caracteristicii la intensitatea t.
-    t=0 -> extrema „bună" (risc minim); t=1 -> extrema „rea" (risc maxim)."""
+    """Feature value at intensity t.
+    t=0 -> the "good" extreme (minimum risk); t=1 -> the "bad" extreme (max risk)."""
     lo, hi = BOUNDS[name]
     worse  = dirs[name]
     good   = lo if worse > 0 else hi
@@ -245,17 +245,17 @@ def feature_value(name, t, dirs):
 
 
 def _vector_at(t, dirs, pos):
-    """Vectorul complet de 12 caracteristici la intensitatea t."""
+    """The full 12-feature vector at intensity t."""
     return [pos if name == "Position" else feature_value(name, t, dirs)
             for name in FEATURES]
 
 
 def solve_t_for_probability(coef, intercept, dirs, pos, target_p):
-    """Rezolvă EXACT intensitatea t pentru care modelul dă probabilitatea țintă.
+    """Solve EXACTLY the intensity t for which the model yields the target probability.
 
-    z(t) = intercept + Σ coef·x(t) este liniar în t (model logistic pe
-    caracteristici brute), deci t = (logit(țintă) − z0) / (z1 − z0).
-    Întoarce (t_clamped, p_min, p_max, a_fost_clampat)."""
+    z(t) = intercept + sum(coef*x(t)) is linear in t (logistic model over raw
+    features), so t = (logit(target) - z0) / (z1 - z0).
+    Returns (t_clamped, p_min, p_max, was_clamped)."""
     z0 = intercept + sum(c * x for c, x in zip(coef, _vector_at(0.0, dirs, pos)))
     z1 = intercept + sum(c * x for c, x in zip(coef, _vector_at(1.0, dirs, pos)))
     p_min, p_max = _sigmoid(z0), _sigmoid(z1)
@@ -267,10 +267,10 @@ def solve_t_for_probability(coef, intercept, dirs, pos, target_p):
     return _clamp(t_raw, 0.0, 1.0), p_min, p_max, clamped
 
 
-# ── Aplicarea modificărilor ────────────────────────────────────────────────
+# -- Applying the changes -------------------------------------------------------
 
 def _wipe(session, uid, start):
-    """Șterge datele dinamice care formează vectorul de caracteristici curent."""
+    """Delete the dynamic data that forms the current feature vector."""
     session.query(WellnessLog).filter(
         WellnessLog.user_id == uid, WellnessLog.date >= start).delete(synchronize_session=False)
     session.query(TrainingLog).filter(
@@ -282,7 +282,7 @@ def _wipe(session, uid, start):
 
 
 def write_features(session, uid, t, dirs):
-    """Scrie în DB datele care produc vectorul de caracteristici la intensitatea t."""
+    """Write to the DB the data that produces the feature vector at intensity t."""
     val = {name: feature_value(name, t, dirs) for name in BOUNDS}
     high_flavor    = t >= 0.5
     good_nutrition = val["Nutrition_Quality_Score"] >= 60
@@ -290,10 +290,10 @@ def write_features(session, uid, t, dirs):
     today = date.today()
     start = today - timedelta(days=84)
 
-    # 1) Curăță datele dinamice recente
+    # 1) Clear recent dynamic data
     _wipe(session, uid, start)
 
-    # 2) Evaluare fizică (se folosește cea mai recentă) — datată azi
+    # 2) Physical assessment (the latest one is used) — dated today
     session.add(PhysicalAssessment(
         user_id=uid, date=today,
         knee_strength_score=round(val["Knee_Strength_Score"], 1),
@@ -304,7 +304,7 @@ def write_features(session, uid, t, dirs):
         agility_score=round(val["Agility_Score"], 1),
     ))
 
-    # 3) Accidentări (contează numărul) — distribuite în ultimele 84 de zile
+    # 3) Injuries (the count matters) — spread over the last 84 days
     n_inj = int(round(val["Previous_Injury_Count"]))
     inj_pool = [
         ("Hamstring strain", "mild", "RICE + physiotherapy", 2),
@@ -322,7 +322,7 @@ def write_features(session, uid, t, dirs):
             rehabilitation_program=prog, rehabilitation_weeks=weeks, recurrence=(k > 0),
         ))
 
-    # 4) Wellness (medie pe 90 de zile) — ~9 intrări cu valorile-țintă
+    # 4) Wellness (90-day average) — ~9 entries with the target values
     cal = 2800 if good_nutrition else 1700
     d = start
     while d <= today:
@@ -341,12 +341,12 @@ def write_features(session, uid, t, dirs):
         ))
         d += timedelta(days=10)
 
-    # 5) Antrenamente (medie warmup pe 90 de zile) — ~9 intrări
+    # 5) Training (90-day warmup average) — ~9 entries
     d = start
     while d <= today:
         session.add(TrainingLog(
             user_id=uid, date=d,
-            training_hours=2.2 if high_flavor else 1.6,   # supraantrenament în zona high
+            training_hours=2.2 if high_flavor else 1.6,   # overtraining in the high zone
             matches_played=0,
             warmup_adherence=round(val["Warmup_Routine_Adherence"], 2),
         ))
@@ -357,24 +357,24 @@ def write_features(session, uid, t, dirs):
 
 
 def run_targeted(session, prof, mode):
-    """Aduce jucătorul la o probabilitate aleatoare din zona `mode` (low/medium/high)."""
+    """Bring the player to a random probability inside the `mode` zone (low/medium/high)."""
     uid = prof.user_id
     dirs, coef, intercept = load_model(session)
 
     lo_p, hi_p = ZONE_TARGETS[mode]
     target = random.uniform(lo_p, hi_p)
-    print(f"  Probabilitate-țintă aleasă în zona {mode.upper()}: {target * 100:.1f}%")
+    print(f"  Target probability chosen in the {mode.upper()} zone: {target * 100:.1f}%")
 
     if coef is not None:
         pos = position_code(prof)
         t, p_min, p_max, clamped = solve_t_for_probability(coef, intercept, dirs, pos, target)
-        print(f"  Interval realizabil pentru acest jucător: "
-              f"{p_min * 100:.1f}% – {p_max * 100:.1f}%")
+        print(f"  Achievable range for this player: "
+              f"{p_min * 100:.1f}% - {p_max * 100:.1f}%")
         if clamped:
-            print("  [!] Ținta iese din intervalul modelului — folosesc cea mai apropiată valoare.")
-        print(f"  Intensitate calculată: t = {t:.3f}  (0 = risc minim, 1 = risc maxim)")
+            print("  [!] Target outside the model's range — using the closest value.")
+        print(f"  Computed intensity: t = {t:.3f}  (0 = minimum risk, 1 = maximum risk)")
     else:
-        # Fără model: cad pe extreme / mijloc
+        # No model: fall back to extremes / middle
         t = {"high": 1.0, "low": 0.0, "medium": 0.5}[mode]
 
     val = write_features(session, uid, t, dirs)
@@ -382,7 +382,7 @@ def run_targeted(session, prof, mode):
 
 
 def apply_seed_like(session, prof, profile):
-    """Regenerează date realiste, jitterate, ca în seed.py (după profilul de risc)."""
+    """Regenerate realistic, jittered data, as in seed.py (per risk profile)."""
     uid = prof.user_id
     pos = prof.position or "Midfielder"
     cfg = SEED_PROFILES.get(profile, SEED_PROFILES["medium"])
@@ -391,7 +391,7 @@ def apply_seed_like(session, prof, profile):
     start = today - timedelta(days=89)
     _wipe(session, uid, start)
 
-    # Antrenamente — la fiecare 2-4 zile
+    # Training — every 2-4 days
     base_h = {"Midfielder": 1.8, "Forward": 2.0, "Defender": 1.6, "Goalkeeper": 1.5}.get(pos, 1.8)
     if profile == "high":
         base_h *= 1.3
@@ -405,7 +405,7 @@ def apply_seed_like(session, prof, profile):
         ))
         d += timedelta(days=random.randint(2, 4))
 
-    # Evaluări fizice — la fiecare ~2 săptămâni
+    # Physical assessments — every ~2 weeks
     base_knee = {"Midfielder": 82.0, "Forward": 79.0, "Defender": 88.0, "Goalkeeper": 90.0}.get(pos, 82.0)
     base_ham  = {"Midfielder": 70.0, "Forward": 72.0, "Defender": 68.0, "Goalkeeper": 65.0}.get(pos, 70.0)
     m = cfg["phys"]
@@ -422,7 +422,7 @@ def apply_seed_like(session, prof, profile):
         ))
         d += timedelta(days=random.randint(12, 16))
 
-    # Accidentări — număr după profil
+    # Injuries — count per profile
     inj_pool = [
         ("Hamstring strain", "mild", "RICE + physiotherapy", 2, False),
         ("Ankle sprain", "moderate", "Rest + physiotherapy", 4, False),
@@ -439,7 +439,7 @@ def apply_seed_like(session, prof, profile):
             rehabilitation_program=prog, rehabilitation_weeks=weeks, recurrence=recur,
         ))
 
-    # Wellness — la fiecare 1-3 zile (nutrition_score rămâne NULL, ca în seed)
+    # Wellness — every 1-3 days (nutrition_score stays NULL, as in seed)
     base_cal = {"Midfielder": 2600, "Forward": 2800, "Defender": 2900, "Goalkeeper": 2700}.get(pos, 2600)
     d = start
     while d <= today:
@@ -461,66 +461,66 @@ def apply_seed_like(session, prof, profile):
     session.commit()
 
 
-# ── Main ───────────────────────────────────────────────────────────────────
+# -- Main -----------------------------------------------------------------------
 
 def main():
-    ap = argparse.ArgumentParser(description="Demo: aduce un jucător în zona low/medium/high sau reset")
+    ap = argparse.ArgumentParser(description="Demo: move a player into the low/medium/high zone or reset")
     ap.add_argument("mode", choices=["high", "medium", "low", "reset"],
-                    help="low/medium/high = țintește o probabilitate aleatoare din zonă; "
-                         "reset = date realiste (ca seed)")
-    ap.add_argument("--player", default="player1", help="username-ul jucătorului (implicit player1)")
-    ap.add_argument("--user-id", default=None, help="user_id direct (ocolește căutarea după username)")
+                    help="low/medium/high = target a random probability in the zone; "
+                         "reset = realistic data (like seed)")
+    ap.add_argument("--player", default="player1", help="player username (default player1)")
+    ap.add_argument("--user-id", default=None, help="direct user_id (bypasses username lookup)")
     args = ap.parse_args()
 
     engine = create_engine(DB_URL)
     session = sessionmaker(bind=engine)()
 
-    # Rezolvă jucătorul
+    # Resolve the player
     if args.user_id:
         prof = session.query(PlayerProfile).filter_by(user_id=args.user_id).first()
     else:
         prof = session.query(PlayerProfile).filter_by(username=args.player).first()
     if not prof:
-        print(f"[x] Jucătorul '{args.user_id or args.player}' nu există în baza de date. "
-              f"Rulează mai întâi ./run.sh seed")
+        print(f"[x] Player '{args.user_id or args.player}' does not exist in the database. "
+              f"Run ./run.sh seed first")
         sys.exit(1)
 
     uid = prof.user_id
     print("=" * 60)
-    print(f" Demo risc — {prof.username}  ({prof.club or 'fără club'}, {prof.position or '?'})")
+    print(f" Risk demo — {prof.username}  ({prof.club or 'no club'}, {prof.position or '?'})")
     if args.mode == "reset":
-        print(" Acțiune: resetare la date realiste (profil seed)")
+        print(" Action: reset to realistic data (seed profile)")
     else:
-        print(f" Țintă: zona {args.mode.upper()}")
+        print(f" Target: {args.mode.upper()} zone")
     print("=" * 60)
 
     before = fetch_risk(uid)
     if before:
-        print(f"\n  ÎNAINTE:  risc = {before['risk'].upper():6}  "
-              f"(probabilitate {before['probability'] * 100:.1f}%)")
+        print(f"\n  BEFORE:  risk = {before['risk'].upper():6}  "
+              f"(probability {before['probability'] * 100:.1f}%)")
 
-    print("\n  Aplic modificările...")
+    print("\n  Applying the changes...")
     target = None
     if args.mode == "reset":
         profile = PROFILE_MAP.get(prof.username, "medium")
         apply_seed_like(session, prof, profile)
-        print(f"  Date realiste regenerate (profil seed: {profile}).")
+        print(f"  Realistic data regenerated (seed profile: {profile}).")
     else:
         val, target = run_targeted(session, prof, args.mode)
-        print("  Vector de caracteristici aplicat:")
+        print("  Applied feature vector:")
         for name, v in val.items():
             print(f"    - {name:26} = {round(v, 2)}")
 
     after = fetch_risk(uid)
     if after:
-        line = (f"\n  DUPĂ:     risc = {after['risk'].upper():6}  "
-                f"(probabilitate {after['probability'] * 100:.1f}%)")
+        line = (f"\n  AFTER:    risk = {after['risk'].upper():6}  "
+                f"(probability {after['probability'] * 100:.1f}%)")
         if target is not None:
-            line += f"   [țintă {target * 100:.1f}%]"
+            line += f"   [target {target * 100:.1f}%]"
         print(line)
 
     session.close()
-    print("\n  Gata. Reîncarcă pagina de recomandări / clasamentul de risc în UI.")
+    print("\n  Done. Reload the recommendations page / risk ranking in the UI.")
     print("=" * 60)
 
 

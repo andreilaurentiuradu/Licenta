@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    host: true, // ascultă pe 0.0.0.0 (necesar în container)
+    host: true, // listen on 0.0.0.0 (required inside the container)
     proxy: {
       '/api': {
         target: process.env.BACKEND_URL || 'http://localhost:5000',

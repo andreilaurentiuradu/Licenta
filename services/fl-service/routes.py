@@ -49,19 +49,26 @@ def _fetch_user_club(user_id: str):
 @require_auth(roles=["coach", "admin"])
 def trigger_fl_round():
     """
-    Manually trigger an FL update round for the coach's club.
+    Manually trigger an FL update round.
+
+    - Coach: trains their own club.
+    - Admin: trains the club passed in the body ({"club": "..."}), or all clubs
+      if none is given.
     """
     from models import PlayerProfile, WellnessLog, FLGlobalModel, FLClubModel
 
     claims   = g.claims
     roles    = claims.get("realm_access", {}).get("roles", [])
     is_admin = "admin" in roles
-    club     = claims.get("club")
-    if not is_admin and not club:
-        club = _fetch_user_club(claims.get("sub", ""))
+    body     = request.get_json(silent=True) or {}
 
     if is_admin:
-        profiles = PlayerProfile.query.all()
+        club = body.get("club")          # may be None -> all clubs
+    else:
+        club = claims.get("club") or _fetch_user_club(claims.get("sub", ""))
+
+    if is_admin and not club:
+        profiles = PlayerProfile.query.all()           # every club
     elif club:
         profiles = PlayerProfile.query.filter_by(club=club).all()
     else:
@@ -70,7 +77,7 @@ def trigger_fl_round():
     if not profiles:
         return jsonify({
             "trained": False,
-            "warning": "No players found for your club.",
+            "warning": f"No players found for {club or 'your club'}.",
         }), 200
 
     # Stale-data check
@@ -98,7 +105,7 @@ def trigger_fl_round():
 
     try:
         from fl.pipeline import _do_club_update
-        if is_admin:
+        if is_admin and not club:
             all_clubs = list({p.club for p in profiles if p.club})
             for c in all_clubs:
                 _do_club_update(c)
@@ -172,6 +179,31 @@ def fl_status():
         payload["loss"]     = global_m.loss
 
     return jsonify(payload)
+
+
+@fl_bp.get("/clubs")
+@require_auth(roles=["admin"])
+def fl_clubs():
+    """Admin — list clubs with player counts and their last local-model state,
+    so an admin can trigger an FL round per club."""
+    from models import PlayerProfile, FLClubModel
+
+    counts = {}
+    for p in PlayerProfile.query.all():
+        if p.club:
+            counts[p.club] = counts.get(p.club, 0) + 1
+
+    club_models = {c.club: c for c in FLClubModel.query.all()}
+    result = []
+    for club, n in sorted(counts.items()):
+        cm = club_models.get(club)
+        result.append({
+            "club":       club,
+            "players":    n,
+            "n_samples":  cm.n_samples if cm else 0,
+            "updated_at": cm.updated_at.isoformat() if cm and cm.updated_at else None,
+        })
+    return jsonify(result)
 
 
 @fl_bp.get("/risk")

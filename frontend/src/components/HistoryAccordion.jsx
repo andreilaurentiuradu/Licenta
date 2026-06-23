@@ -1,17 +1,16 @@
 import { useState } from 'react'
 
 /**
- * Grupează intrările de istoric pe intervale de timp (Today / This week /
- * This month / Last 3 months / Older) și le afișează ca secțiuni pliabile,
- * în stilul paginii de Support. Prima secțiune negoală e deschisă implicit;
- * restul se deschid la click.
+ * Groups history entries into time buckets (Today / This week / This month /
+ * Last 3 months / Older) and shows them as collapsible sections, in the style
+ * of the Support page. All sections start collapsed; they open on click.
  *
- * Filtrarea pe date (from/to) rămâne în pagina părinte — componenta doar
- * grupează și afișează lista deja încărcată.
+ * Date filtering (from/to) stays in the parent page — this component only
+ * groups and renders the already-loaded list.
  *
  * props:
- *   entries  – array de obiecte cu un câmp `date` (ISO "YYYY-MM-DD") și `id`
- *   children – funcție (subsetEntries) => JSX, randează conținutul unei secțiuni
+ *   entries  – array of objects with a `date` field (ISO "YYYY-MM-DD") and `id`
+ *   children – function (subsetEntries) => JSX, renders one section's content
  */
 
 const BUCKETS = [
@@ -28,16 +27,16 @@ function bucketIndex(dateStr) {
   today.setHours(0, 0, 0, 0)
   const d = new Date(`${dateStr}T00:00:00`)
   if (Number.isNaN(d.getTime())) return 4
-  const diff = Math.floor((today - d) / 86400000) // zile întregi
-  if (diff <= 0)  return 0   // azi (sau viitor)
-  if (diff <= 7)  return 1   // această săptămână
-  if (diff <= 30) return 2   // această lună
-  if (diff <= 90) return 3   // ultimele 3 luni
-  return 4                   // mai vechi
+  const diff = Math.floor((today - d) / 86400000) // whole days
+  if (diff <= 0)  return 0   // today (or future)
+  if (diff <= 7)  return 1   // this week
+  if (diff <= 30) return 2   // this month
+  if (diff <= 90) return 3   // last 3 months
+  return 4                   // older
 }
 
 export default function HistoryAccordion({ entries, children }) {
-  // null = toate secțiunile închise la intrarea pe pagină; se deschid la click
+  // null = all sections collapsed on page load; they open on click
   const [open, setOpen] = useState(null)
 
   if (!entries || entries.length === 0) return null

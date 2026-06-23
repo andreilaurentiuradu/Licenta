@@ -196,7 +196,7 @@ player-service  ──POST /internal/trigger──►  fl-service
 │   │   ├── app.py
 │   │   ├── auth.py
 │   │   ├── models.py               # FLGlobalModel, FLClubModel + player read models
-│   │   ├── routes.py               # /api/fl/train, /api/fl/status, /internal/trigger
+│   │   ├── routes.py               # /api/fl/train, /api/fl/status, /api/fl/clubs, /internal/trigger
 │   │   ├── requirements.txt
 │   │   ├── Dockerfile
 │   │   ├── data/
@@ -374,11 +374,11 @@ The 4 clubs have distinct risk profiles — designed to make FedAvg aggregation 
 2. Home shows:
    - **Injury Risk Ranking** panel — 3 players sorted by FL risk score
    - Red alert banner: players with high risk flagged immediately
-   - **Federated Learning** panel with current model stats (round, accuracy, clubs)
+   - **Federated Learning** panel with current model stats (round, clubs)
 3. In the **FL panel** → click **"Start round →"**
    - FL fine-tunes the FC Rivals local model on the seeded data
    - FedAvg aggregates across all clubs → global model updated
-   - Round counter increments, accuracy updates
+   - Round counter increments (quality metrics are visible to admins only)
 4. Risk Ranking refreshes — probabilities reflect the updated model
 5. Click on a **high-risk player** (e.g. player4 or player5) → navigates to their profile
 6. Browse tabs:
@@ -537,8 +537,9 @@ Privacy-by-design: raw player data never leaves the service. Only model weights 
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/fl/train` | coach / admin | Manually trigger FL round for the coach's club |
-| `GET` | `/api/fl/status` | coach / admin | Current global model: round, accuracy, clubs, samples |
+| `POST` | `/api/fl/train` | coach / admin | Trigger an FL round. Coach → own club; admin → a specific club via `{"club": "..."}`, or all clubs if omitted |
+| `GET` | `/api/fl/status` | coach / admin | Global model: round, clubs, samples. Quality metrics (accuracy / recall / loss) are **admin-only** |
+| `GET` | `/api/fl/clubs` | admin | Clubs with player counts and last local-model state (for per-club training) |
 | `GET` | `/api/fl/risk` | coach / admin | Injury risk ranking for all players in the coach's club |
 | `GET` | `/internal/risk/<id>` | internal only | FL risk score for a single player (used by ai-recommendation-service) |
 | `POST` | `/internal/trigger` | internal only | Called by player-service after data mutations |
@@ -618,8 +619,8 @@ User identity is owned by Keycloak — no users table in the application databas
 - Player history (training / physical / wellness / injuries) grouped into collapsible time buckets: Today / This week / This month / Last 3 months / Older
 - Recommendations page: accept / refuse (→ a replacement of the same category) / mark complete, with a completed-history section below
 - Role-based home dashboard:
-  - **Admin** → User Management card
-  - **Coach** → Players card + FL Panel (train button, round/accuracy/clubs stats) + Injury Risk Ranking (sorted by FL probability, red alert for high-risk players)
+  - **Admin** → User Management card + FL admin panel (per-club training + admin-only quality metrics: cross-validated accuracy / recall / log loss)
+  - **Coach** → Players card + FL Panel (train button, round/clubs stats) + Injury Risk Ranking (sorted by FL probability, red alert for high-risk players)
   - **Player** → My Stats card
 
 ### Tests
@@ -632,7 +633,7 @@ Each microservice has its own pytest suite. The frontend uses vitest. All tests 
 |---|---|---|
 | auth-service | `test_auth.py` | register validation, role enforcement, `/me`, admin create-user |
 | player-service | `test_players.py` | biometrics CRUD + RBAC, training, physical, wellness (nutrition_score), injuries |
-| fl-service | `test_fl.py` | status (no model / with model), internal trigger, train RBAC |
+| fl-service | `test_fl.py` | status (no model / with model), admin-only metrics, internal trigger, train RBAC, admin per-club training, club listing |
 | ai-recommendation-service | `test_ai.py` | RBAC, persisted recommendations (no re-generation), accept / refuse (same-category replacement) / complete, generate, Groq fallback |
 | feedback-service | `test_feedback.py` | submit validation, persistence, admin list |
 

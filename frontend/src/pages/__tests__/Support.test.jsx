@@ -33,7 +33,7 @@ describe('Support page', () => {
   it('expands an FAQ when clicked', async () => {
     renderWithRouter(<Support />)
     await userEvent.click(screen.getByText('Can I accept, refuse or complete a recommendation?'))
-    expect(screen.getByText(/lists both completed/i)).toBeInTheDocument()
+    expect(screen.getByText(/split into collapsible/i)).toBeInTheDocument()
   })
 
   it('navigates back home', async () => {

@@ -33,7 +33,7 @@ Usage: ./run.sh <command> [args]
 
   DATA
     seed                 Create demo accounts (admin / coach / 3 players)
-                         and populate 90 days of mock metrics in the DB
+                         and populate ~6 months of mock metrics in the DB
     db                   Open a psql shell in the running Postgres container
     risk [low|medium|high|reset] [player]
                          FL demo — target a player's injury risk to a random

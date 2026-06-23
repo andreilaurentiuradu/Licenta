@@ -1,6 +1,10 @@
 """
 Seed script — creates demo accounts in Keycloak and populates the database
-with realistic mock data spanning the last 90 days.
+with realistic mock data spanning the last ~6 months (180 days).
+
+Idempotent: every metric row is keyed by (user_id, date), so re-running
+`./run.sh seed` only inserts the dates that are still missing — existing
+entries are left untouched.
 
 4 clubs x 3 players — designed to demonstrate the FL pipeline:
   each club has a distinct risk profile so FedAvg aggregates meaningfully.
@@ -271,41 +275,48 @@ def seed_player(session, uid, p, force_n_injuries=None):
         prof.club = p["club"]
 
     today = date.today()
-    start = today - timedelta(days=89)
+    start = today - timedelta(days=179)
 
-    # Training logs — every 2-4 days
+    # Training logs — every 1-2 days
     base_h = {"Midfielder": 1.8, "Forward": 2.0, "Defender": 1.6, "Goalkeeper": 1.5}[pos]
     if profile == "high":
         base_h *= 1.3  # overtraining pattern
     d = start
     while d <= today:
+        # Draw every random value unconditionally so the visited-date sequence
+        # is identical on every run (idempotency); only the insert is gated.
+        th   = round(jitter(base_h, 0.25), 1)
+        mp   = random.choices([0, 1], weights=[4, 1])[0]
+        wa   = round(random.uniform(*cfg["warmup"]), 2)
+        note = random.choice([None, None, "Recovery", "Match prep", "Strength"])
         if not session.query(TrainingLog).filter_by(user_id=uid, date=d).first():
             session.add(TrainingLog(
                 user_id=uid, date=d,
-                training_hours=round(jitter(base_h, 0.25), 1),
-                matches_played=random.choices([0, 1], weights=[4, 1])[0],
-                warmup_adherence=round(random.uniform(*cfg["warmup"]), 2),
-                notes=random.choice([None, None, "Recovery", "Match prep", "Strength"]),
+                training_hours=th, matches_played=mp,
+                warmup_adherence=wa, notes=note,
             ))
-        d += timedelta(days=random.randint(2, 4))
+        d += timedelta(days=random.randint(1, 2))
 
-    # Physical assessments — every ~2 weeks
+    # Physical assessments — roughly weekly
     base_knee = {"Midfielder": 82.0, "Forward": 79.0, "Defender": 88.0, "Goalkeeper": 90.0}[pos]
     base_ham  = {"Midfielder": 70.0, "Forward": 72.0, "Defender": 68.0, "Goalkeeper": 65.0}[pos]
+    m = cfg["phys"]
     d = start
     while d <= today:
+        knee = jitter(base_knee * m, 0.08)
+        ham  = jitter(base_ham * m, 0.10)
+        rt   = jitter(240.0 / m, 0.10)
+        bal  = jitter(83.0 * m, 0.08)
+        spr  = jitter(5.9 * m, 0.08)
+        agi  = jitter(78.0 * m, 0.08)
         if not session.query(PhysicalAssessment).filter_by(user_id=uid, date=d).first():
-            m = cfg["phys"]
             session.add(PhysicalAssessment(
                 user_id=uid, date=d,
-                knee_strength_score=jitter(base_knee * m, 0.08),
-                hamstring_flexibility=jitter(base_ham * m, 0.10),
-                reaction_time_ms=jitter(240.0 / m, 0.10),
-                balance_test_score=jitter(83.0 * m, 0.08),
-                sprint_speed_10m_s=jitter(5.9 * m, 0.08),
-                agility_score=jitter(78.0 * m, 0.08),
+                knee_strength_score=knee, hamstring_flexibility=ham,
+                reaction_time_ms=rt, balance_test_score=bal,
+                sprint_speed_10m_s=spr, agility_score=agi,
             ))
-        d += timedelta(days=random.randint(12, 16))
+        d += timedelta(days=random.randint(6, 9))
 
     # Injuries — count driven by risk profile (or overridden for FL class balance)
     injury_pool = [
@@ -319,10 +330,10 @@ def seed_player(session, uid, p, force_n_injuries=None):
     lo, hi = cfg["injuries"]
     n_inj = force_n_injuries if force_n_injuries is not None else random.randint(lo, hi)
     if n_inj > 0:
-        for day_off in sorted(random.sample(range(5, 85), min(n_inj, 80))):
+        for day_off in sorted(random.sample(range(5, 175), min(n_inj, 170))):
             inj_date = start + timedelta(days=day_off)
+            t, sev, prog, weeks, recur = random.choice(injury_pool)
             if not session.query(InjuryRecord).filter_by(user_id=uid, date=inj_date).first():
-                t, sev, prog, weeks, recur = random.choice(injury_pool)
                 session.add(InjuryRecord(
                     user_id=uid, date=inj_date,
                     injury_type=t, injury_severity=sev,
@@ -330,25 +341,27 @@ def seed_player(session, uid, p, force_n_injuries=None):
                     recurrence=recur,
                 ))
 
-    # Wellness logs — every 1-3 days
+    # Wellness logs — every 1-2 days
     base_cal = {"Midfielder": 2600, "Forward": 2800, "Defender": 2900, "Goalkeeper": 2700}[pos]
     d = start
     while d <= today:
+        cal   = int(jitter(base_cal, 0.12))
+        prot  = round(cal * 0.28 / 4, 1)
+        carbs = round(cal * 0.50 / 4, 1)
+        fat   = round(cal * 0.22 / 9, 1)
+        hyd   = int(jitter(2400 if profile != "high" else 1800, 0.20))
+        sh    = round(jitter(cfg["sleep"], 0.10), 1)
+        sq    = clamp(int(jitter(8 if profile == "low" else 5 if profile == "high" else 7, 0.20)), 1, 10)
+        sl    = clamp(int(jitter(cfg["stress"], 0.25)), 1, 10)
+        ms    = clamp(int(jitter(8 if profile == "low" else 5 if profile == "high" else 7, 0.20)), 1, 10)
         if not session.query(WellnessLog).filter_by(user_id=uid, date=d).first():
-            cal   = int(jitter(base_cal, 0.12))
-            prot  = round(cal * 0.28 / 4, 1)
-            carbs = round(cal * 0.50 / 4, 1)
-            fat   = round(cal * 0.22 / 9, 1)
             session.add(WellnessLog(
                 user_id=uid, date=d,
                 calories=cal, protein_g=prot, carbs_g=carbs, fat_g=fat,
-                hydration_ml=int(jitter(2400 if profile != "high" else 1800, 0.20)),
-                sleep_hours=round(jitter(cfg["sleep"], 0.10), 1),
-                sleep_quality=clamp(int(jitter(8 if profile == "low" else 5 if profile == "high" else 7, 0.20)), 1, 10),
-                stress_level=clamp(int(jitter(cfg["stress"], 0.25)), 1, 10),
-                mood_score=clamp(int(jitter(8 if profile == "low" else 5 if profile == "high" else 7, 0.20)), 1, 10),
+                hydration_ml=hyd, sleep_hours=sh, sleep_quality=sq,
+                stress_level=sl, mood_score=ms,
             ))
-        d += timedelta(days=random.randint(1, 3))
+        d += timedelta(days=random.randint(1, 2))
 
     session.commit()
     print(f"[DB] Seeded '{p['username']}'  ({p['club']})  profile={profile}")

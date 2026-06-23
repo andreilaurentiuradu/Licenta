@@ -104,6 +104,20 @@ describe('PlayerRecommendations page', () => {
     })
   })
 
+  it('polls the server on an interval to stay in sync', async () => {
+    vi.useFakeTimers()
+    try {
+      renderWithRouter(<PlayerRecommendations />)
+      await vi.advanceTimersByTimeAsync(0)          // flush the initial load
+      expect(api.getRecommendations).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(15000)      // one poll tick
+      expect(api.getRecommendations).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('shows the completed history when present', async () => {
     api.getRecommendations.mockResolvedValue({
       data: {

@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams }           from 'react-router-dom'
 import {
   getRecommendations, generateRecommendations,
   acceptRecommendation, refuseRecommendation, completeRecommendation,
 } from '../api/players'
 import toast from 'react-hot-toast'
+
+const POLL_MS = 15000   // light polling so a second device stays roughly in sync
 
 const PRIORITY_STYLE = {
   high:   { badge: 'bg-red-500/20 text-red-300',         dot: 'bg-red-400'     },
@@ -25,12 +27,53 @@ export default function PlayerRecommendations() {
   const [busyId, setBusyId]     = useState(null)
   const [generating, setGenerating] = useState(false)
 
+  // Latest "action in flight" flag, readable from the polling interval without
+  // re-subscribing it on every render.
+  const busyRef = useRef(false)
+  busyRef.current = busyId !== null || generating
+
+  // Silent background refresh — never toggles the loading spinner.
+  const refresh = () =>
+    getRecommendations(id).then((r) => setData(r.data)).catch(() => {})
+
+  // Initial load (with spinner).
   useEffect(() => {
     getRecommendations(id)
       .then((r) => setData(r.data))
       .catch(() => toast.error('Failed to load recommendations'))
       .finally(() => setLoading(false))
   }, [id])
+
+  // Light polling: refresh on an interval, plus whenever the tab regains focus.
+  // Skips a tick while the tab is hidden or an action is in flight, so it never
+  // clobbers an optimistic update mid-action.
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState !== 'visible' || busyRef.current) return
+      refresh()
+    }
+    const interval  = setInterval(tick, POLL_MS)
+    const onVisible = () => { if (document.visibilityState === 'visible') tick() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  // A 409 means another device already acted on this recommendation; the
+  // server returns the fresh state so we resync instead of failing.
+  const handleConflict = (err) => {
+    if (err.response?.status === 409) {
+      setData(err.response.data)
+      toast('Recommendations were updated on another device.', { icon: '🔄' })
+      return true
+    }
+    return false
+  }
 
   const accept = async (rid) => {
     setBusyId(rid)
@@ -40,8 +83,8 @@ export default function PlayerRecommendations() {
         ...d,
         active: d.active.map((r) => (r.id === rid ? rec : r)),
       }))
-    } catch {
-      toast.error('Action failed')
+    } catch (err) {
+      if (!handleConflict(err)) toast.error('Action failed')
     } finally { setBusyId(null) }
   }
 
@@ -54,8 +97,8 @@ export default function PlayerRecommendations() {
         active: [...d.active.filter((r) => r.id !== rid), res.replacement],
       }))
       toast.success('Replaced with another recommendation')
-    } catch {
-      toast.error('Action failed')
+    } catch (err) {
+      if (!handleConflict(err)) toast.error('Action failed')
     } finally { setBusyId(null) }
   }
 
@@ -69,8 +112,8 @@ export default function PlayerRecommendations() {
         completed: [rec, ...d.completed],
       }))
       toast.success('Marked as complete')
-    } catch {
-      toast.error('Action failed')
+    } catch (err) {
+      if (!handleConflict(err)) toast.error('Action failed')
     } finally { setBusyId(null) }
   }
 

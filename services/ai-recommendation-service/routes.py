@@ -297,6 +297,16 @@ def _serialize(user_id: str, fl_risk: dict) -> dict:
     }
 
 
+def _conflict(user_id: str, message: str):
+    """Return 409 with the current server state so a stale client can resync.
+
+    Guards against two devices acting on the same recommendation: e.g. one
+    accepts it while another (showing stale data) tries to refuse it."""
+    payload = _serialize(user_id, _fetch_fl_risk(user_id))
+    payload["error"] = message
+    return jsonify(payload), 409
+
+
 # ── Endpoints ──────────────────────────────────────────────────────────────
 
 @ai_bp.get("/<user_id>/recommendations")
@@ -350,6 +360,10 @@ def accept_recommendation(user_id, rid):
     if not _can_access(user_id):
         return jsonify({"error": "Forbidden"}), 403
     rec = Recommendation.query.filter_by(id=rid, user_id=user_id).first_or_404()
+    if rec.status == "accepted":
+        return jsonify(rec.to_dict())               # idempotent
+    if rec.status != "pending":
+        return _conflict(user_id, "This recommendation is no longer pending.")
     rec.status = "accepted"
     db.session.commit()
     return jsonify(rec.to_dict())
@@ -361,6 +375,10 @@ def complete_recommendation(user_id, rid):
     if not _can_access(user_id):
         return jsonify({"error": "Forbidden"}), 403
     rec = Recommendation.query.filter_by(id=rid, user_id=user_id).first_or_404()
+    if rec.status == "completed":
+        return jsonify(rec.to_dict())               # idempotent
+    if rec.status not in ("pending", "accepted"):
+        return _conflict(user_id, "This recommendation can no longer be completed.")
     rec.status = "completed"
     db.session.commit()
     return jsonify(rec.to_dict())
@@ -373,6 +391,10 @@ def refuse_recommendation(user_id, rid):
     if not _can_access(user_id):
         return jsonify({"error": "Forbidden"}), 403
     rec = Recommendation.query.filter_by(id=rid, user_id=user_id).first_or_404()
+    # Only a still-pending recommendation can be refused. This prevents a stale
+    # second device from refusing one that was already accepted/completed.
+    if rec.status != "pending":
+        return _conflict(user_id, "This recommendation can no longer be refused.")
     rec.status = "refused"
 
     avoid = [r.text for r in Recommendation.query.filter_by(

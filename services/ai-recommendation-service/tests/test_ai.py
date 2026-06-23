@@ -121,6 +121,24 @@ class TestActions:
         assert kept_ids <= active_ids        # untouched recommendations preserved
         assert repl["id"] not in active_ids  # the refused replacement was re-rolled away
 
+    def test_cannot_refuse_an_accepted_recommendation(self, client, mock_player):
+        """A stale second device must not be able to refuse an already-accepted rec."""
+        rec = self._first_active(client)
+        client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/accept", headers=auth_headers())
+        resp = client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/refuse", headers=auth_headers())
+        assert resp.status_code == 409
+        body = resp.get_json()
+        assert "error" in body and "active" in body          # fresh state for resync
+        # it stays accepted and no replacement was created
+        assert any(r["id"] == rec["id"] and r["status"] == "accepted" for r in body["active"])
+
+    def test_accept_is_idempotent(self, client, mock_player):
+        rec = self._first_active(client)
+        first  = client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/accept", headers=auth_headers())
+        second = client.post(f"/api/players/{PLAYER_UID}/recommendations/{rec['id']}/accept", headers=auth_headers())
+        assert first.status_code == 200 and second.status_code == 200
+        assert second.get_json()["status"] == "accepted"
+
     def test_action_requires_access(self, client, mock_player):
         resp = client.post(f"/api/players/{PLAYER2_UID}/recommendations/1/accept", headers=auth_headers())
         assert resp.status_code == 403

@@ -58,7 +58,7 @@ export default function Register() {
         .form-card  { animation: slideUp 0.5s ease both; }
       `}</style>
 
-      <div className="min-h-screen bg-gradient-to-br ${bg} flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
 
         {/* Decorative lines */}
         <div className="absolute inset-0 pointer-events-none">

@@ -171,7 +171,7 @@ player-service  ──POST /internal/trigger──►  fl-service
 │   ├── Dockerfile
 │   └── nginx.conf                  # Path-based reverse proxy to all services
 ├── scripts/
-│   ├── seed.py                     # Demo accounts + 90 days of mock data (run.sh seed)
+│   ├── seed.py                     # Demo accounts + ~6 months of mock data (run.sh seed)
 │   ├── demo_risk.py                # FL demo: target a player's risk to low/medium/high or reset (run.sh risk)
 │   └── requirements.txt
 ├── notebooks/
@@ -269,7 +269,7 @@ player-service  ──POST /internal/trigger──►  fl-service
 ```bash
 ./run.sh build    # build all 7 Docker images (gateway + 5 services + frontend)
 ./run.sh start    # init Swarm + deploy stack
-./run.sh seed     # create demo accounts + populate 90 days of mock metrics
+./run.sh seed     # create demo accounts + populate ~6 months of mock metrics
 ```
 
 ### After code changes
@@ -383,7 +383,7 @@ The 4 clubs have distinct risk profiles — designed to make FedAvg aggregation 
 5. Click on a **high-risk player** (e.g. player4 or player5) → navigates to their profile
 6. Browse tabs:
    - **Biometrics** — position, height, weight, birth year
-   - **Training** — training hours and matches chart (last 90 days)
+   - **Training** — training hours and matches chart (last ~6 months)
    - **Physical** — knee strength, hamstring, reaction time multi-line chart
    - **Injuries** — injury cards with severity and rehab details
    - **Wellness** — sleep, stress, mood and nutrition charts
@@ -403,7 +403,7 @@ The 4 clubs have distinct risk profiles — designed to make FedAvg aggregation 
 2. Home shows the **Player** badge and **My Stats** card
 3. Click **My Stats** → Player profile opens at Biometrics tab
 4. Browse all tabs:
-   - **Training** → chart with training load over 90 days
+   - **Training** → chart with training load over ~6 months
    - **Physical** → multi-line chart (knee strength, agility, sprint speed)
    - **Injuries** → injury history cards (2–3 injuries for FC Rivals profile)
    - **Wellness** → sleep hours, stress and mood trends
@@ -636,7 +636,7 @@ Each microservice has its own pytest suite. The frontend uses vitest. All tests 
 | ai-recommendation-service | `test_ai.py` | RBAC, persisted recommendations (no re-generation), accept / refuse (same-category replacement) / complete, generate, Groq fallback |
 | feedback-service | `test_feedback.py` | submit validation, persistence, admin list |
 
-**Frontend (vitest + Testing Library)** — 68 tests across 12 files:
+**Frontend (vitest + Testing Library)** — 69 tests across 12 files:
 
 - `AuthContext.test.jsx` — token storage, login, logout, expired token
 - `Login.test.jsx` — form rendering, sport default/preserve, navigation
@@ -647,7 +647,7 @@ Each microservice has its own pytest suite. The frontend uses vitest. All tests 
 - `Feedback.test.jsx` — star rating aspects, form submission
 - `Home.test.jsx` — role-aware cards: admin → User Management, coach → Players, player → My Stats
 - `SportSelect.test.jsx` — sport card click, localStorage, navigation
-- `PlayerRecommendations.test.jsx` — render, accept, refuse (replacement), complete (history), regenerate refused
+- `PlayerRecommendations.test.jsx` — render, accept, refuse (replacement), complete (history), regenerate refused, interval polling
 - `Support.test.jsx` — header, FAQ entries (recommendation actions & history grouping), expand, back navigation
 - `ThemedBackground.test.jsx` — variant selection, unknown-variant fallback, decorative/non-interactive glyphs
 

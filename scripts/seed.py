@@ -197,6 +197,27 @@ def admin_token(retries=20, delay=6):
     sys.exit(1)
 
 
+def ensure_unmanaged_attributes(token):
+    """Enable the realm policy that lets custom attributes (e.g. 'club') persist.
+    Without this, modern Keycloak drops the club attribute on REST-created users."""
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    base    = f"{KC_URL}/admin/realms/{KC_REALM}"
+    try:
+        resp = requests.get(f"{base}/users/profile", headers=headers, timeout=10)
+        if resp.status_code != 200:
+            print(f"[KC] user-profile GET -> {resp.status_code}; skipping unmanaged-attr setup")
+            return
+        prof = resp.json()
+        if prof.get("unmanagedAttributePolicy") == "ENABLED":
+            print("[KC] Unmanaged attributes already enabled.")
+            return
+        prof["unmanagedAttributePolicy"] = "ENABLED"
+        put = requests.put(f"{base}/users/profile", json=prof, headers=headers, timeout=10)
+        print(f"[KC] Enabled unmanaged attributes (club will persist) -> {put.status_code}")
+    except Exception as exc:
+        print(f"[KC] ensure_unmanaged_attributes failed: {exc}")
+
+
 def ensure_kc_user(token, u):
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     base    = f"{KC_URL}/admin/realms/{KC_REALM}"
@@ -207,6 +228,17 @@ def ensure_kc_user(token, u):
     ).json()
     if existing:
         uid = existing[0]["id"]
+        # Backfill the club attribute for users created before unmanaged
+        # attributes were enabled (their club would otherwise stay empty).
+        if u.get("club"):
+            full  = requests.get(f"{base}/users/{uid}", headers=headers, timeout=10).json()
+            attrs = full.get("attributes") or {}
+            if attrs.get("club") != [u["club"]]:
+                attrs["club"] = [u["club"]]
+                full["attributes"] = attrs
+                requests.put(f"{base}/users/{uid}", json=full, headers=headers, timeout=10)
+                print(f"[KC] '{u['username']}' already exists  uid={uid}  (club set -> {u['club']})")
+                return uid
         print(f"[KC] '{u['username']}' already exists  uid={uid}")
         return uid
 
@@ -374,6 +406,7 @@ def main():
 
     print("[1/2] Creating Keycloak accounts...")
     token = admin_token()
+    ensure_unmanaged_attributes(token)
 
     uid_map = {}
     for c in COACHES:

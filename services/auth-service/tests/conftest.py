@@ -4,6 +4,7 @@ import pathlib
 
 os.environ.setdefault("KEYCLOAK_URL", "http://localhost")
 os.environ.setdefault("KEYCLOAK_REALM", "test")
+os.environ.setdefault("AUTH_KC_BOOTSTRAP", "0")   # don't spawn the KC bootstrap thread in tests
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 

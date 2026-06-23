@@ -35,6 +35,33 @@ def _admin_token() -> str:
     return resp.json()["access_token"]
 
 
+def ensure_unmanaged_attributes():
+    """Allow custom user attributes (e.g. 'club') to persist when users are
+    created via the admin REST API.
+
+    Modern Keycloak's User Profile silently drops 'unmanaged' attributes unless
+    the realm policy explicitly allows them — which is why a newly created
+    coach/player showed an empty club. Idempotent; safe to run on every boot."""
+    token   = _admin_token()
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    base    = f"{_keycloak_url()}/admin/realms/{_realm()}"
+
+    resp = requests.get(f"{base}/users/profile", headers=headers, timeout=10)
+    if resp.status_code != 200:
+        raise RuntimeError(f"GET user profile failed: {resp.status_code}")
+    profile = resp.json()
+    if profile.get("unmanagedAttributePolicy") == "ENABLED":
+        log.info("[auth] Unmanaged attribute policy already ENABLED.")
+        return
+    profile["unmanagedAttributePolicy"] = "ENABLED"
+    put = requests.put(f"{base}/users/profile", json=profile, headers=headers, timeout=10)
+    if put.status_code in (200, 204):
+        log.info("[auth] Enabled unmanaged attribute policy — club attribute will now persist.")
+    else:
+        log.warning("[auth] Could not enable unmanaged attributes: %d %s",
+                    put.status_code, put.text)
+
+
 def _create_user_in_keycloak(username: str, email: str, password: str, role: str, club: str = None):
     """Create a Keycloak user with credentials + assign realm role. Returns (resp_dict, status_code)."""
     token   = _admin_token()

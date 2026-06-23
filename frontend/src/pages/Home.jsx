@@ -175,6 +175,20 @@ function AdminFLPanel() {
     }
   }
 
+  const runAll = async () => {
+    setBusy('__all__')
+    try {
+      const { data } = await triggerFLRound()   // no club -> every club
+      if (data.trained) toast.success(data.message || `Round advanced to ${data.fl_round}`)
+      else toast(data.warning || 'No new data in any club — round unchanged', { icon: 'ℹ️' })
+      refresh()
+    } catch {
+      toast.error('Failed to run FL round')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   if (!status?.ready) return null
   const pct  = status.accuracy != null ? `${(status.accuracy * 100).toFixed(1)}%` : '—'
   const rec  = status.recall   != null ? status.recall.toFixed(2) : '—'
@@ -182,10 +196,21 @@ function AdminFLPanel() {
 
   return (
     <div className="mb-6 p-5 rounded-2xl bg-white/8 border border-white/10">
-      <p className="text-sm font-semibold text-white">Federated Learning · Admin</p>
-      <p className="text-xs text-white/40 mt-0.5">
-        Run a training round per club and watch the global round update · raw data never leaves the club.
-      </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-sm font-semibold text-white">Federated Learning · Admin</p>
+          <p className="text-xs text-white/40 mt-0.5">
+            Run a round for one club or all clubs · only advances if there's new data · raw data never leaves the club.
+          </p>
+        </div>
+        <button
+          onClick={runAll}
+          disabled={busy !== null}
+          className="shrink-0 px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-semibold transition-all disabled:opacity-50"
+        >
+          {busy === '__all__' ? 'Running…' : 'Run all clubs →'}
+        </button>
+      </div>
 
       {/* Global model stats + admin-only quality metrics */}
       <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 text-center">

@@ -1,5 +1,6 @@
-import { Outlet, useNavigate, useParams, NavLink, useSearchParams } from 'react-router-dom'
+import { Outlet, useNavigate, useParams, NavLink, useSearchParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import ThemedBackground from '../components/ThemedBackground'
 
 const TABS = [
   { path: 'biometrics',      label: 'Biometrics'      },
@@ -9,6 +10,16 @@ const TABS = [
   { path: 'wellness',        label: 'Wellness'        },
   { path: 'recommendations', label: 'Recommendations' },
 ]
+
+// Map the active tab to its background motif.
+const BG_VARIANTS = {
+  biometrics:      'body',
+  training:        'strength',
+  physical:        'health',
+  injuries:        'medical',
+  wellness:        'wellness',
+  recommendations: 'spark',
+}
 
 function pickRole(roles) {
   if (roles?.includes('admin'))  return 'admin'
@@ -20,11 +31,15 @@ export default function PlayerLayout() {
   const { id }        = useParams()
   const { user }      = useAuth()
   const navigate      = useNavigate()
+  const location      = useLocation()
   const [params, setParams] = useSearchParams()
 
   const role     = pickRole(user?.roles)
   const isPlayer = role === 'player'
   const accent   = 'from-emerald-950 via-emerald-900 to-green-800'
+
+  const activeTab = TABS.find((t) => location.pathname.endsWith(`/${t.path}`))?.path
+  const bgVariant = BG_VARIANTS[activeTab] || 'spark'
 
   const fromDate = params.get('from') || ''
   const toDate   = params.get('to')   || ''
@@ -39,9 +54,12 @@ export default function PlayerLayout() {
   const backTarget = isPlayer ? '/home' : '/players'
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${accent} flex flex-col`}>
+    <div className={`min-h-screen bg-gradient-to-br ${accent} flex flex-col relative overflow-hidden`}>
+      {/* Theme-specific decorative background, switches per tab */}
+      <ThemedBackground variant={bgVariant} />
+
       {/* Header */}
-      <div className="px-4 sm:px-6 pt-5 pb-0 border-b border-white/10">
+      <div className="relative z-10 px-4 sm:px-6 pt-5 pb-0 border-b border-white/10">
         <div className="max-w-3xl lg:max-w-6xl mx-auto">
 
           {/* Back + title */}
@@ -111,7 +129,7 @@ export default function PlayerLayout() {
       </div>
 
       {/* Page content */}
-      <div className="flex-1 px-4 sm:px-6 py-5">
+      <div className="relative z-10 flex-1 px-4 sm:px-6 py-5">
         <div className="max-w-3xl lg:max-w-6xl mx-auto">
           <Outlet />
         </div>

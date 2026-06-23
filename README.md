@@ -172,7 +172,7 @@ player-service  ──POST /internal/trigger──►  fl-service
 │   └── nginx.conf                  # Path-based reverse proxy to all services
 ├── scripts/
 │   ├── seed.py                     # Demo accounts + 90 days of mock data (run.sh seed)
-│   ├── demo_risk.py                # FL demo: force a player high/low risk or reset (run.sh risk)
+│   ├── demo_risk.py                # FL demo: target a player's risk to low/medium/high or reset (run.sh risk)
 │   └── requirements.txt
 ├── notebooks/
 │   ├── prediction-of-injury-with-logisticregression.ipynb
@@ -232,7 +232,8 @@ player-service  ──POST /internal/trigger──►  fl-service
         │   ├── players.js          # Player metrics + recommendation actions (accept/refuse/complete)
         │   └── fl.js               # getFlStatus · triggerFLRound · getRiskRanking
         ├── components/
-        │   └── HistoryAccordion.jsx  # Collapsible time-bucketed history (Today/This week/Month/...)
+        │   ├── HistoryAccordion.jsx  # Collapsible time-bucketed history (Today/This week/Month/...)
+        │   └── ThemedBackground.jsx  # Per-tab decorative motif (health/strength/wellness/...)
         ├── contexts/
         │   └── AuthContext.jsx     # JWT parsing, token storage, getMe fallback
         ├── pages/
@@ -293,7 +294,7 @@ player-service  ──POST /internal/trigger──►  fl-service
 ./run.sh logs frontend            # tail frontend logs
 ./run.sh test [scope]             # run tests (auth|player|fl|ai|feedback|frontend|all)
 ./run.sh seed                     # seed mock player data (idempotent)
-./run.sh risk high|low|reset [player]   # FL demo: force a player's risk high/low, or reset to seed data
+./run.sh risk low|medium|high|reset [player]  # FL demo: target a player's risk to a random probability in the chosen zone, or reset to seed data
 ./run.sh fl [clubs] [rounds]      # standalone FL simulation (default: 4 clubs, 10 rounds)
 ./run.sh notebook                 # start Jupyter server at http://localhost:8888
 ./run.sh db                       # open psql shell in the running Postgres container
@@ -635,7 +636,7 @@ Each microservice has its own pytest suite. The frontend uses vitest. All tests 
 | ai-recommendation-service | `test_ai.py` | RBAC, persisted recommendations (no re-generation), accept / refuse (same-category replacement) / complete, generate, Groq fallback |
 | feedback-service | `test_feedback.py` | submit validation, persistence, admin list |
 
-**Frontend (vitest + Testing Library)** — 61 tests across 10 files:
+**Frontend (vitest + Testing Library)** — 68 tests across 12 files:
 
 - `AuthContext.test.jsx` — token storage, login, logout, expired token
 - `Login.test.jsx` — form rendering, sport default/preserve, navigation
@@ -646,7 +647,9 @@ Each microservice has its own pytest suite. The frontend uses vitest. All tests 
 - `Feedback.test.jsx` — star rating aspects, form submission
 - `Home.test.jsx` — role-aware cards: admin → User Management, coach → Players, player → My Stats
 - `SportSelect.test.jsx` — sport card click, localStorage, navigation
-- `PlayerRecommendations.test.jsx` — render, accept, refuse (replacement), complete (history), generate
+- `PlayerRecommendations.test.jsx` — render, accept, refuse (replacement), complete (history), regenerate refused
+- `Support.test.jsx` — header, FAQ entries (recommendation actions & history grouping), expand, back navigation
+- `ThemedBackground.test.jsx` — variant selection, unknown-variant fallback, decorative/non-interactive glyphs
 
 ```bash
 ./run.sh test all        # all services + frontend

@@ -17,6 +17,8 @@ app.config["KEYCLOAK_URL"]                   = os.environ.get("KEYCLOAK_URL",   
 app.config["KEYCLOAK_REALM"]                 = os.environ.get("KEYCLOAK_REALM", "lawranalyzer")
 app.config["GROQ_API_KEY"]                   = os.environ.get("GROQ_API_KEY",   "")
 
+from sqlalchemy import text
+
 from models import db
 db.init_app(app)
 
@@ -24,11 +26,30 @@ from routes import ai_bp
 app.register_blueprint(ai_bp, url_prefix="/api/players")
 
 
+# Lightweight, idempotent migrations for columns added after a table already
+# exists (create_all only creates missing tables, never alters existing ones).
+_MIGRATIONS = [
+    "ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS from_refusal BOOLEAN DEFAULT FALSE",
+]
+
+
+def _ensure_columns():
+    with app.app_context():
+        for stmt in _MIGRATIONS:
+            try:
+                db.session.execute(text(stmt))
+                db.session.commit()
+            except Exception as exc:
+                db.session.rollback()
+                log.warning("[ai-recommendation-service] Migration skipped (%s): %s", stmt, exc)
+
+
 def _init_db():
     for attempt in range(30):
         try:
             with app.app_context():
                 db.create_all()
+            _ensure_columns()
             log.info("[ai-recommendation-service] DB initialised.")
             return
         except Exception as exc:

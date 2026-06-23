@@ -32,11 +32,24 @@ const FAQS = [
   },
   {
     q: 'How do AI recommendations work?',
-    a: 'The platform collects the last 30 days of wellness, training and physical data, combines it with the FL injury risk score, and sends it to an LLM (Groq — llama-3.1-8b-instant). The model returns 3–4 personalised recommendations across: Injury Prevention, Training Load, Wellness, Nutrition and Recovery.',
+    a: 'The platform collects the player\'s recent wellness, training and physical data, combines it with the FL injury risk score, and sends it to an LLM (Groq — llama-3.1-8b-instant). The model returns personalised recommendations across: Injury Prevention, Training Load, Wellness, Nutrition and Recovery. Recommendations are generated once and saved — opening the page again does not trigger a new LLM call, so the list stays stable until you act on it.',
+  },
+  {
+    q: 'Can I accept, refuse or complete a recommendation?',
+    a: [
+      'Accept — marks the recommendation as acknowledged (an "Accepted" badge appears).',
+      'Refuse — discards it and immediately replaces it with a different recommendation of the same category.',
+      'Mark complete — moves it to the "Completed" history section at the bottom of the page.',
+      'Regenerate refused — re-rolls only the recommendations you previously refused, leaving the others untouched.',
+    ],
   },
   {
     q: 'Why does the risk score in Recommendations match the Risk Ranking?',
     a: 'Both use the same source: the Federated Learning model. The FL risk score is authoritative and is passed directly to the LLM as context, so AI recommendations are always calibrated to the player\'s actual risk level — not a separate LLM estimate.',
+  },
+  {
+    q: 'How is the metric history organised?',
+    a: 'On the Training, Physical, Injuries and Wellness tabs the history is grouped into collapsible sections — Today, This week, This month, Last 3 months and Older. All sections start collapsed; click one to expand it. The Period date-range filter at the top still applies and narrows every section.',
   },
   {
     q: 'How do I record player data?',

@@ -35,10 +35,11 @@ Usage: ./run.sh <command> [args]
     seed                 Create demo accounts (admin / coach / 3 players)
                          and populate 90 days of mock metrics in the DB
     db                   Open a psql shell in the running Postgres container
-    risk [high|low|reset] [player]
-                         FL demo — push a player to high/low injury risk, or
-                         reset to realistic seed data (default: high player1).
-                         e.g. ./run.sh risk low player4   ./run.sh risk reset player1
+    risk [low|medium|high|reset] [player]
+                         FL demo — target a player's injury risk to a random
+                         probability in the chosen zone, or reset to realistic
+                         seed data (default: high player1).
+                         e.g. ./run.sh risk medium player6   ./run.sh risk reset player1
 
   TESTING
     test [scope]         Run tests: auth|player|fl|ai|feedback|frontend|all (default: all)
